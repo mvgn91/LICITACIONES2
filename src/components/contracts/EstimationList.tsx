@@ -13,6 +13,8 @@ import { FileDown, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { doc, updateDoc, getFirestore } from 'firebase/firestore';
 import { app } from '@/lib/firebase';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const db = getFirestore(app);
 
@@ -26,21 +28,26 @@ export function EstimationList({ contractId, estimations }: EstimationListProps)
   const [isPending, startTransition] = useTransition();
 
   const handleStatusChange = (estimationId: string, isCompleted: boolean) => {
-    startTransition(async () => {
-      try {
+    startTransition(() => {
         const estimationRef = doc(db, `contratos/${contractId}/estimaciones`, estimationId);
-        await updateDoc(estimationRef, { isCompleted });
-        toast({
-          title: 'Estado Actualizado',
-          description: 'El estado de la estimación ha sido guardado.',
-        });
-      } catch (error) {
-        toast({
-          title: 'Error',
-          description: 'No se pudo actualizar el estado. Por favor, intente de nuevo.',
-          variant: 'destructive',
-        });
-      }
+        const updateData = { isCompleted };
+        
+        updateDoc(estimationRef, updateData)
+            .then(() => {
+                toast({
+                    title: 'Estado Actualizado',
+                    description: 'El estado de la estimación ha sido guardado.',
+                });
+            })
+            .catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: estimationRef.path,
+                    operation: 'update',
+                    requestResourceData: updateData,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                // No need for a toast here, the listener will handle it.
+            });
     });
   };
 

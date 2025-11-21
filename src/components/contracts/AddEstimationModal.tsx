@@ -30,6 +30,8 @@ import { addDoc, collection, serverTimestamp, getFirestore } from 'firebase/fire
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { app } from '@/lib/firebase';
 import { Textarea } from '../ui/textarea';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const db = getFirestore(app);
 const storage = getStorage(app);
@@ -68,8 +70,19 @@ async function addEstimationAction(contractId: string, data: EstimationFormValue
         createdAt: serverTimestamp(),
         evidencias: evidenceUrl ? [evidenceUrl] : [],
     };
+    
+    const collectionRef = collection(db, `contratos/${contractId}/estimaciones`);
 
-    await addDoc(collection(db, `contratos/${contractId}/estimaciones`), estimationData);
+    return addDoc(collectionRef, estimationData).catch(async (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: collectionRef.path,
+          operation: 'create',
+          requestResourceData: estimationData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        // Re-throw the original error to be caught by the calling function
+        throw serverError;
+    });
 }
 
 export function AddEstimationModal({ contractId }: { contractId: string }) {
@@ -95,8 +108,12 @@ export function AddEstimationModal({ contractId }: { contractId: string }) {
         form.reset();
         setFileName('');
       } catch (error) {
-        console.error("Error adding estimation:", error)
-        toast({ title: 'Error', description: 'No se pudo agregar la estimación.', variant: 'destructive' });
+        // The permission error is already emitted, so we just need to prevent the success toast.
+        // The FirebaseErrorListener will show the detailed error.
+        // We can show a generic toast here if we want.
+        if (!(error instanceof FirestorePermissionError)) {
+             toast({ title: 'Error', description: 'No se pudo agregar la estimación.', variant: 'destructive' });
+        }
       }
     });
   };
