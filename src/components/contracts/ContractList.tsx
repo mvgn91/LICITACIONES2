@@ -1,34 +1,20 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useCollection } from '@/firebase/firestore/use-collection';
-import { useFirebase } from '@/firebase/provider';
-import { useUser } from '@/firebase/auth/use-user';
-import { collection, query, where, orderBy } from 'firebase/firestore';
 import { EmptyState } from './EmptyState';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Contrato, Estimacion } from '@/lib/types';
 import { ContractListItem } from './ContractListItem';
-import { Skeleton } from '../ui/skeleton';
-import { useMemoFirebase } from '@/firebase/hooks/use-memo-firebase';
+import { mockContratos } from '@/lib/mock-data';
 
 export function ContractList() {
-  const { firestore } = useFirebase();
-  const { user } = useUser();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
-
-  const contractsQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
-    return query(
-      collection(firestore, 'contratos'),
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
-  }, [firestore, user?.uid]);
-
-  const { data: contracts, isLoading } = useCollection(contractsQuery);
+  
+  // Use mock data instead of Firebase
+  const contracts = mockContratos;
+  const isLoading = false;
 
   const filteredContracts = useMemo(() => {
     if (!contracts) return [];
@@ -49,12 +35,12 @@ export function ContractList() {
     return (
         <div className="space-y-4">
             <div className="flex justify-between items-center mb-6">
-                <Skeleton className="h-10 w-64" />
-                <Skeleton className="h-10 w-48" />
+                <div className="h-10 w-64 bg-muted animate-pulse rounded-md" />
+                <div className="h-10 w-48 bg-muted animate-pulse rounded-md" />
             </div>
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
+            <div className="h-24 w-full bg-muted animate-pulse rounded-md" />
+            <div className="h-24 w-full bg-muted animate-pulse rounded-md" />
+            <div className="h-24 w-full bg-muted animate-pulse rounded-md" />
         </div>
     );
   }

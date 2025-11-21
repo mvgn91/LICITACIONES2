@@ -10,7 +10,7 @@ import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 
 interface ContractListItemProps {
-  contract: Contrato & { estimaciones?: Estimacion[] };
+  contract: Contrato & { estimaciones?: Omit<Estimacion, 'isCompleted'>[] };
 }
 
 export function ContractListItem({ contract }: ContractListItemProps) {
