@@ -1,55 +1,46 @@
+
 import { collection, getDocs, query, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Contract, Estimation } from '@/lib/types';
+import type { Contrato } from '@/lib/types';
 import { ContractList } from '@/components/contracts/ContractList';
-import { calculateContractProgress } from '@/ai/flows/calculate-contract-progress';
 import { EmptyState } from '@/components/contracts/EmptyState';
 import { Timestamp } from 'firebase/firestore';
 
 async function getContracts(): Promise<any[]> {
-  // Ensure you have a composite index in Firestore for this query:
-  // Collection: contracts, Fields: contractDate (descending)
-  const contractsCol = query(collection(db, 'contracts'), orderBy('contractDate', 'desc'));
-  const contractSnapshot = await getDocs(contractsCol);
-  const contracts: any[] = [];
+  // Firestore query for the 'contratos' collection, ordered by creation date
+  const contratosCol = query(collection(db, 'contratos'), orderBy('createdAt', 'desc'));
+  const contratoSnapshot = await getDocs(contratosCol);
+  const contratos: any[] = [];
 
-  for (const doc of contractSnapshot.docs) {
-    const contractData = doc.data() as Omit<Contract, 'id' | 'estimations' | 'progress'>;
+  for (const doc of contratoSnapshot.docs) {
+    // Basic contract data, assuming it matches the Contrato interface excluding subcollections
+    const contractData = doc.data() as Omit<Contrato, 'id'>;
 
-    const estimationsCol = query(collection(db, `contracts/${doc.id}/estimations`));
-    const estimationSnapshot = await getDocs(estimationsCol);
-    const estimations = estimationSnapshot.docs.map(
-      (estDoc) => ({ id: estDoc.id, ...estDoc.data() } as Estimation)
-    );
-
-    let progress = 0;
-    if (estimations.length > 0) {
-      try {
-        const result = await calculateContractProgress({ estimations });
-        progress = Math.round(result.progress);
-      } catch (error) {
-        console.error('Error calculating progress for contract', doc.id, error);
-        const completed = estimations.filter((e) => e.isCompleted).length;
-        progress = estimations.length > 0 ? Math.round((completed / estimations.length) * 100) : 0;
-      }
-    }
-
-    const contract = {
+    const contrato = {
       id: doc.id,
       ...contractData,
-      contractDate: (contractData.contractDate as Timestamp).toMillis(),
-      estimations,
-      progress,
+      // Convert Timestamps to ensure serializability for the client component
+      fechaInicio: (contractData.fechaInicio as Timestamp).toMillis(),
+      fechaTerminoEstimada: (contractData.fechaTerminoEstimada as Timestamp).toMillis(),
+      createdAt: (contractData.createdAt as Timestamp).toMillis(),
+      anticipoFecha: contractData.anticipoFecha ? (contractData.anticipoFecha as Timestamp).toMillis() : null,
     };
 
-    contracts.push(contract);
+    contratos.push(contrato);
   }
 
-  return contracts;
+  return contratos;
 }
 
 export default async function Page() {
-  const initialContracts = await getContracts();
+  let initialContracts: any[] = [];
+  try {
+    initialContracts = await getContracts();
+  } catch (error) {
+    console.error("Failed to fetch contracts:", error);
+    // Render an empty state with an error message or a more specific error component
+    return <EmptyState error="No se pudieron cargar los contratos. Verifique la configuración de Firestore y las reglas de seguridad." />;
+  }
 
   if (!initialContracts || initialContracts.length === 0) {
     return <EmptyState />;
@@ -57,6 +48,7 @@ export default async function Page() {
 
   return (
     <div className="container mx-auto max-w-7xl p-4 md:p-8">
+      <h1 className="text-2xl font-bold mb-4 text-white">Contratos</h1>
       <ContractList initialContracts={initialContracts} />
     </div>
   );

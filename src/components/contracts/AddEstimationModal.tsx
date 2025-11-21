@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -6,7 +7,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Plus, UploadCloud, File as FileIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { addEstimation } from '@/app/actions';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -26,22 +26,51 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { addDoc, collection, serverTimestamp, getFirestore } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { app } from '@/lib/firebase';
+import { Textarea } from '../ui/textarea';
+
+const db = getFirestore(app);
+const storage = getStorage(app);
+
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ACCEPTED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
+const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
 
 const estimationSchema = z.object({
-  description: z.string().min(1, 'Description is required'),
-  amount: z.coerce.number().min(0, 'Amount must be positive'),
+  observaciones: z.string().min(1, 'La observación es requerida'),
+  monto: z.coerce.number().min(0, 'El monto debe ser positivo'),
   file: z.any()
-    .refine((file) => !file || file.size <= MAX_FILE_SIZE, `Max file size is 5MB.`)
+    .optional()
+    .refine((file) => !file || file?.size <= MAX_FILE_SIZE, `El tamaño máximo del archivo es 5MB.`)
     .refine(
-      (file) => !file || ACCEPTED_IMAGE_TYPES.includes(file.type),
-      ".jpg, .jpeg, .png, .webp and .pdf files are accepted."
-    ).optional(),
+      (file) => !file || ACCEPTED_FILE_TYPES.includes(file?.type),
+      "Solo se aceptan archivos .jpg, .jpeg, .png, .webp y .pdf."
+    ),
 });
 
 type EstimationFormValues = z.infer<typeof estimationSchema>;
+
+async function addEstimationAction(contractId: string, data: EstimationFormValues) {
+    let evidenceUrl = '';
+    if (data.file) {
+        const storageRef = ref(storage, `contracts/${contractId}/estimations/${Date.now()}_${data.file.name}`);
+        const snapshot = await uploadBytes(storageRef, data.file);
+        evidenceUrl = await getDownloadURL(snapshot.ref);
+    }
+    
+    const estimationData = {
+        tipo: 'Parcial' as const,
+        monto: data.monto,
+        observaciones: data.observaciones,
+        isCompleted: false,
+        createdAt: serverTimestamp(),
+        evidencias: evidenceUrl ? [evidenceUrl] : [],
+    };
+
+    await addDoc(collection(db, `contratos/${contractId}/estimaciones`), estimationData);
+}
 
 export function AddEstimationModal({ contractId }: { contractId: string }) {
   const [open, setOpen] = useState(false);
@@ -52,58 +81,59 @@ export function AddEstimationModal({ contractId }: { contractId: string }) {
   const form = useForm<EstimationFormValues>({
     resolver: zodResolver(estimationSchema),
     defaultValues: {
-      description: '',
-      amount: 0,
+      observaciones: '',
+      monto: 0,
     },
   });
 
   const onSubmit = (data: EstimationFormValues) => {
     startTransition(async () => {
-      const formData = new FormData();
-      formData.append('description', data.description);
-      formData.append('amount', String(data.amount));
-      if (data.file) {
-        formData.append('file', data.file);
-      }
-      
-      const result = await addEstimation(contractId, null, formData);
-
-      if (result.message.includes('success')) {
-        toast({ title: 'Success', description: result.message });
+      try {
+        await addEstimationAction(contractId, data);
+        toast({ title: 'Éxito', description: 'Estimación agregada correctamente.' });
         setOpen(false);
         form.reset();
         setFileName('');
-      } else {
-        toast({ title: 'Error', description: result.message, variant: 'destructive' });
+      } catch (error) {
+        console.error("Error adding estimation:", error)
+        toast({ title: 'Error', description: 'No se pudo agregar la estimación.', variant: 'destructive' });
       }
     });
   };
+  
+    const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+        form.reset();
+        setFileName('');
+    }
+    setOpen(isOpen);
+  }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button variant="default" size="sm" className="bg-accent hover:bg-accent/90 text-accent-foreground">
           <Plus className="-ml-1 mr-2 h-4 w-4" />
-          Add Estimation
+          Agregar Estimación
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="font-headline">Add New Estimation</DialogTitle>
+          <DialogTitle className="font-headline">Agregar Nueva Estimación</DialogTitle>
           <DialogDescription>
-            Add a new task or item to this contract.
+            Agregue una nueva tarea o item a este contrato.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="description"
+              name="observaciones"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>Observaciones</FormLabel>
                   <FormControl>
-                    <Input placeholder="e.g., Kitchen countertop installation" {...field} />
+                    <Textarea placeholder="Ej: Instalación de encimeras de cocina" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -111,10 +141,10 @@ export function AddEstimationModal({ contractId }: { contractId: string }) {
             />
             <FormField
               control={form.control}
-              name="amount"
+              name="monto"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Amount ($)</FormLabel>
+                  <FormLabel>Monto ($)</FormLabel>
                   <FormControl>
                     <Input type="number" placeholder="500" {...field} />
                   </FormControl>
@@ -125,9 +155,9 @@ export function AddEstimationModal({ contractId }: { contractId: string }) {
             <FormField
               control={form.control}
               name="file"
-              render={({ field }) => (
+              render={({ field: { onChange, value, ...rest }}) => (
                 <FormItem>
-                  <FormLabel>Evidence File (Optional)</FormLabel>
+                  <FormLabel>Archivo de Evidencia (Opcional)</FormLabel>
                   <FormControl>
                     <div className="relative">
                       <Input
@@ -136,9 +166,10 @@ export function AddEstimationModal({ contractId }: { contractId: string }) {
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          field.onChange(file);
+                          onChange(file);
                           setFileName(file ? file.name : '');
                         }}
+                        {...rest}
                       />
                       <div className="flex items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50">
                         {fileName ? (
@@ -149,7 +180,7 @@ export function AddEstimationModal({ contractId }: { contractId: string }) {
                         ) : (
                             <div className="flex flex-col items-center text-muted-foreground">
                                 <UploadCloud className="w-8 h-8"/>
-                                <span className="mt-1 text-sm">Click to upload</span>
+                                <span className="mt-1 text-sm">Click para subir</span>
                             </div>
                         )}
                       </div>
@@ -161,7 +192,7 @@ export function AddEstimationModal({ contractId }: { contractId: string }) {
             />
             <DialogFooter>
               <Button type="submit" disabled={isPending}>
-                {isPending ? 'Adding...' : 'Add Estimation'}
+                {isPending ? 'Agregando...' : 'Agregar Estimación'}
               </Button>
             </DialogFooter>
           </form>

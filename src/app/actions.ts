@@ -1,120 +1,74 @@
+
 'use server';
 
-import {
-  addDoc,
-  collection,
-  doc,
-  serverTimestamp,
-  Timestamp,
-  updateDoc,
-} from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { addDoc, collection, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
-import { db, storage } from '@/lib/firebase';
-import {calculateContractProgress} from "@/ai/flows/calculate-contract-progress";
+import { db } from '@/lib/firebase';
 
-const contractSchema = z.object({
-  clientName: z.string().min(1, 'Client name is required'),
-  address: z.string().min(1, 'Address is required'),
-  phone: z.string().min(1, 'Phone number is required'),
-  totalAmount: z.coerce.number().min(0, 'Total amount must be positive'),
-  contractDate: z.date(),
+// Zod schema for validating contract form data
+const contractFormSchema = z.object({
+  nombre: z.string().min(1, 'El nombre del proyecto es requerido'),
+  cliente: z.string().min(1, 'El nombre del cliente es requerido'),
+  montoConIVA: z.coerce.number().min(0, 'El monto debe ser un número positivo'),
+  // Coerce date strings or other values to Date objects
+  fechaInicio: z.coerce.date({ required_error: 'La fecha de inicio es requerida' }),
+  fechaTerminoEstimada: z.coerce.date({ required_error: 'La fecha de término estimada es requerida' }),
 });
 
+// Infer the type from the schema to use as the function parameter type
+type ContractFormData = z.infer<typeof contractFormSchema>;
+
 export async function addContract(prevState: any, formData: FormData) {
-  const validatedFields = contractSchema.safeParse({
-    clientName: formData.get('clientName'),
-    address: formData.get('address'),
-    phone: formData.get('phone'),
-    totalAmount: formData.get('totalAmount'),
-    contractDate: new Date(formData.get('contractDate') as string),
-  });
+
+  const values = {
+    nombre: formData.get('nombre'),
+    cliente: formData.get('cliente'),
+    montoConIVA: formData.get('montoConIVA'),
+    fechaInicio: formData.get('fechaInicio'),
+    fechaTerminoEstimada: formData.get('fechaTerminoEstimada'),
+  }
+
+  // Validate the incoming data against the schema
+  const validatedFields = contractFormSchema.safeParse(values);
 
   if (!validatedFields.success) {
     return {
-      message: 'Invalid form data. Please check your inputs.',
+      message: 'Datos de formulario inválidos. Por favor, revise sus entradas.',
       errors: validatedFields.error.flatten().fieldErrors,
     };
   }
-  
+
   try {
-    const { contractDate, ...rest } = validatedFields.data;
-    await addDoc(collection(db, 'contracts'), {
-      ...rest,
-      contractDate: Timestamp.fromDate(contractDate),
-    });
-
-    revalidatePath('/');
-    return { message: 'Contract added successfully.' };
-  } catch (e) {
-    console.error(e);
-    return { message: 'Failed to create contract.' };
-  }
-}
-
-const estimationSchema = z.object({
-  description: z.string().min(1, 'Description is required'),
-  amount: z.coerce.number().min(0, 'Amount must be positive'),
-  file: z.instanceof(File).optional(),
-});
-
-export async function addEstimation(contractId: string, prevState: any, formData: FormData) {
-    if (!contractId) return { message: 'Contract ID is missing.' };
-
-    const validatedFields = estimationSchema.safeParse({
-        description: formData.get('description'),
-        amount: formData.get('amount'),
-        file: formData.get('file'),
-    });
-
-    if (!validatedFields.success) {
-        return {
-            message: 'Invalid form data.',
-            errors: validatedFields.error.flatten().fieldErrors,
-        };
-    }
+    const { fechaInicio, fechaTerminoEstimada, ...rest } = validatedFields.data;
     
-    const { file, ...estimationData } = validatedFields.data;
-    let fileUrl = '';
+    // Prepare the full contract document for Firestore
+    const newContractData = {
+      ...rest,
+      // Convert Date objects to Firestore Timestamps
+      fechaInicio: Timestamp.fromDate(fechaInicio),
+      fechaTerminoEstimada: Timestamp.fromDate(fechaTerminoEstimada),
+      // Set server-side timestamp for creation date
+      createdAt: serverTimestamp(),
+      // Set default values for fields not present in the form
+      estado: 'Activo' as const,
+      montoBase: 0, // Default value
+      montoSinIVA: 0, // Default value
+      descripcion: '', // Default value
+      docConstructoraOK: false,
+      docControlOK: false,
+      // Optional fields will be implicitly undefined, which is fine for Firestore
+    };
 
-    try {
-        if (file && file.size > 0) {
-            const storageRef = ref(storage, `evidencias/${contractId}/${Date.now()}-${file.name}`);
-            const snapshot = await uploadBytes(storageRef, file);
-            fileUrl = await getDownloadURL(snapshot.ref);
-        }
+    await addDoc(collection(db, 'contratos'), newContractData);
 
-        await addDoc(collection(db, `contracts/${contractId}/estimations`), {
-            ...estimationData,
-            isCompleted: false,
-            evidencias: fileUrl ? [fileUrl] : [],
-        });
-        
-        revalidatePath(`/contracts/${contractId}`);
-        revalidatePath('/');
-        return { message: 'Estimation added successfully.' };
-
-    } catch (e) {
-        console.error(e);
-        return { message: 'Failed to add estimation.' };
-    }
-}
-
-
-export async function updateEstimationStatus(contractId: string, estimationId: string, isCompleted: boolean) {
-  if (!contractId || !estimationId) {
-    throw new Error('Contract or Estimation ID is missing.');
-  }
-  try {
-    const estimationRef = doc(db, `contracts/${contractId}/estimations`, estimationId);
-    await updateDoc(estimationRef, {
-      isCompleted: isCompleted,
-    });
-    revalidatePath(`/contracts/${contractId}`);
+    // Revalidate the cache for the home page to show the new contract
     revalidatePath('/');
-  } catch (error) {
-    console.error('Failed to update estimation status:', error);
-    throw new Error('Failed to update estimation status.');
+    
+    return { message: 'Contrato agregado exitosamente.', errors: null };
+
+  } catch (e) {
+    console.error('Error al crear contrato:', e);
+    return { message: 'Error al crear el contrato.', errors: { server: ['An unexpected error occurred.'] } };
   }
 }

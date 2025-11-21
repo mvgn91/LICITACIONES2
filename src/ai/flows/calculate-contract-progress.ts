@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -22,30 +23,12 @@ export type CalculateContractProgressInput = z.infer<typeof CalculateContractPro
 
 const CalculateContractProgressOutputSchema = z.object({
   progress: z.number().describe('The overall progress of the contract as a percentage (0-100).'),
-  summary: z.string().describe('A short summary of the calculation.'),
-  progressSummary: z.string().describe('A short, one-sentence summary of the progress calculation.'),
 });
 export type CalculateContractProgressOutput = z.infer<typeof CalculateContractProgressOutputSchema>;
 
 export async function calculateContractProgress(input: CalculateContractProgressInput): Promise<CalculateContractProgressOutput> {
   return calculateContractProgressFlow(input);
 }
-
-const calculateContractProgressPrompt = ai.definePrompt({
-  name: 'calculateContractProgressPrompt',
-  input: {schema: CalculateContractProgressInputSchema},
-  output: {schema: CalculateContractProgressOutputSchema},
-  prompt: `You are an expert contract progress calculator.
-
-  Given a list of estimations for a contract, where each estimation has a boolean field indicating whether it is completed, calculate the overall progress of the contract as a percentage.
-
-  If there are no estimations, the progress is 0.
-
-  Return a JSON object with the progress percentage and a short summary of the calculation.
-
-  Estimations: {{{JSON.stringify estimations}}}
-  `,
-});
 
 const calculateContractProgressFlow = ai.defineFlow(
   {
@@ -55,14 +38,11 @@ const calculateContractProgressFlow = ai.defineFlow(
   },
   async input => {
     const {estimations} = input;
-
     const totalEstimations = estimations.length;
 
     if (totalEstimations === 0) {
       return {
         progress: 0,
-        summary: 'No estimations found, progress is 0.',
-        progressSummary: 'No estimations are available for this contract.',
       };
     }
 
@@ -71,8 +51,6 @@ const calculateContractProgressFlow = ai.defineFlow(
 
     return {
       progress,
-      summary: `Calculated progress based on ${totalEstimations} estimations, with ${completedEstimations} completed.`, // Keep summary brief
-      progressSummary: `The contract is ${progress.toFixed(2)}% complete based on estimations.`, // Added one-sentence summary here
     };
   }
 );

@@ -1,3 +1,4 @@
+
 import { doc, getDoc, collection, getDocs, query } from 'firebase/firestore';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/firebase';
@@ -12,7 +13,7 @@ interface PageProps {
 }
 
 async function getContract(id: string): Promise<any | null> {
-  const contractRef = doc(db, 'contracts', id);
+  const contractRef = doc(db, 'contratos', id);
   const contractSnap = await getDoc(contractRef);
 
   if (!contractSnap.exists()) {
@@ -21,7 +22,7 @@ async function getContract(id: string): Promise<any | null> {
 
   const contractData = contractSnap.data() as Omit<Contract, 'id' | 'estimations' | 'progress'>;
 
-  const estimationsCol = query(collection(db, `contracts/${id}/estimations`));
+  const estimationsCol = query(collection(db, `contratos/${id}/estimaciones`));
   const estimationSnapshot = await getDocs(estimationsCol);
   const estimations = estimationSnapshot.docs.map(
     (estDoc) => ({ id: estDoc.id, ...estDoc.data() } as Estimation)
@@ -30,8 +31,14 @@ async function getContract(id: string): Promise<any | null> {
   return {
     id: contractSnap.id,
     ...contractData,
-    contractDate: (contractData.contractDate as Timestamp).toMillis(),
-    estimations: estimations,
+    fechaInicio: (contractData.fechaInicio as Timestamp).toMillis(),
+    fechaTerminoEstimada: (contractData.fechaTerminoEstimada as Timestamp).toMillis(),
+    createdAt: (contractData.createdAt as Timestamp).toMillis(),
+    anticipoFecha: contractData.anticipoFecha ? (contractData.anticipoFecha as Timestamp).toMillis() : null,
+    estimations: estimations.map(est => ({
+      ...est,
+      createdAt: (est.createdAt as Timestamp).toMillis(),
+    })),
     progress: 0, // Progress will be calculated client-side in real-time
   };
 }

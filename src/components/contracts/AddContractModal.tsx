@@ -1,13 +1,14 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { CalendarIcon, Plus } from 'lucide-react';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -37,43 +38,52 @@ import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
 import { addContract } from '@/app/actions';
 import { cn } from '@/lib/utils';
+import { useEffect } from 'react';
 
 const contractSchema = z.object({
-  clientName: z.string().min(1, 'Client name is required'),
-  address: z.string().min(1, 'Address is required'),
-  phone: z.string().min(1, 'Phone number is required'),
-  totalAmount: z.coerce.number().min(0, 'Total amount must be positive'),
-  contractDate: z.date({ required_error: 'Contract date is required' }),
+  nombre: z.string().min(1, 'El nombre del proyecto es requerido'),
+  cliente: z.string().min(1, 'El nombre del cliente es requerido'),
+  montoConIVA: z.coerce.number().min(0, 'El monto debe ser positivo'),
+  fechaInicio: z.date({ required_error: 'La fecha de inicio es requerida' }),
+  fechaTerminoEstimada: z.date({ required_error: 'La fecha de término estimada es requerida' }),
 });
 
 type ContractFormValues = z.infer<typeof contractSchema>;
 
+function SubmitButton() {
+    const { pending } = useFormStatus();
+    return (
+        <Button type="submit" disabled={pending}>
+            {pending ? 'Agregando...' : 'Agregar Contrato'}
+        </Button>
+    );
+}
+
 const initialState = {
     message: '',
-    errors: {},
-};
+    errors: null,
+}
 
 export function AddContractModal() {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
-  
   const [state, formAction] = useFormState(addContract, initialState);
 
   const form = useForm<ContractFormValues>({
     resolver: zodResolver(contractSchema),
     defaultValues: {
-      clientName: '',
-      address: '',
-      phone: '',
-      totalAmount: 0,
-      contractDate: new Date(),
+      nombre: '',
+      cliente: '',
+      montoConIVA: 0,
+      fechaInicio: new Date(),
+      fechaTerminoEstimada: new Date(),
     },
   });
 
   useEffect(() => {
     if (state.message && !state.errors) {
       toast({
-        title: 'Success',
+        title: 'Contrato Agregado',
         description: state.message,
       });
       setOpen(false);
@@ -84,22 +94,12 @@ export function AddContractModal() {
         description: state.message,
         variant: 'destructive',
       });
-      for (const [field, messages] of Object.entries(state.errors)) {
-        form.setError(field as keyof ContractFormValues, {
-          type: 'server',
-          message: (messages as string[]).join(', '),
-        });
-      }
     }
   }, [state, toast, form]);
   
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
         form.reset();
-        // A clean state is needed if we re-open. The hook doesn't reset on its own.
-        // This is a limitation of useFormState.
-        // A better approach would be to reset the form and its server state.
-        // For now, let's just reset the form UI.
     }
     setOpen(isOpen);
   }
@@ -109,26 +109,26 @@ export function AddContractModal() {
       <DialogTrigger asChild>
         <Button variant="default" className="bg-accent hover:bg-accent/90 text-accent-foreground">
           <Plus />
-          Add Contract
+          Agregar Contrato
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-headline">Add New Contract</DialogTitle>
+          <DialogTitle className="font-headline">Agregar Nuevo Contrato</DialogTitle>
           <DialogDescription>
-            Fill in the details below to create a new contract.
+            Complete los detalles para crear un nuevo contrato.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form action={formAction} className="space-y-4">
             <FormField
               control={form.control}
-              name="clientName"
+              name="nombre"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Client Name</FormLabel>
+                  <FormLabel>Nombre del Proyecto</FormLabel>
                   <FormControl>
-                    <Input placeholder="John Doe" {...field} />
+                    <Input placeholder="Ej: Remodelación Cocina" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -136,12 +136,12 @@ export function AddContractModal() {
             />
             <FormField
               control={form.control}
-              name="address"
+              name="cliente"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Address</FormLabel>
+                  <FormLabel>Cliente</FormLabel>
                   <FormControl>
-                    <Input placeholder="123 Main St, Anytown, USA" {...field} />
+                    <Input placeholder="Juan Pérez" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -149,23 +149,10 @@ export function AddContractModal() {
             />
             <FormField
               control={form.control}
-              name="phone"
+              name="montoConIVA"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone</FormLabel>
-                  <FormControl>
-                    <Input placeholder="(555) 555-5555" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="totalAmount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Total Amount ($)</FormLabel>
+                  <FormLabel>Monto Total (IVA incluido)</FormLabel>
                   <FormControl>
                     <Input type="number" placeholder="5000" {...field} />
                   </FormControl>
@@ -175,10 +162,10 @@ export function AddContractModal() {
             />
             <FormField
               control={form.control}
-              name="contractDate"
+              name="fechaInicio"
               render={({ field }) => (
                 <FormItem className="flex flex-col">
-                  <FormLabel>Contract Date</FormLabel>
+                  <FormLabel>Fecha de Inicio</FormLabel>
                   <Popover>
                     <PopoverTrigger asChild>
                       <FormControl>
@@ -189,11 +176,11 @@ export function AddContractModal() {
                             !field.value && 'text-muted-foreground'
                           )}
                         >
-                          <CalendarIcon className="mr-2" />
+                          <CalendarIcon className="mr-2 h-4 w-4" />
                           {field.value ? (
-                            format(field.value, 'PPP')
+                            format(field.value, 'PPP', { locale: es })
                           ) : (
-                            <span>Pick a date</span>
+                            <span>Seleccione una fecha</span>
                           )}
                         </Button>
                       </FormControl>
@@ -208,20 +195,55 @@ export function AddContractModal() {
                     </PopoverContent>
                   </Popover>
                   <FormMessage />
+                  {/* Hidden input to pass date to server action */}
+                  <input type="hidden" name={field.name} value={field.value?.toISOString()} />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="fechaTerminoEstimada"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel>Fecha de Término Estimada</FormLabel>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant={'outline'}
+                          className={cn(
+                            'w-full justify-start pl-3 text-left font-normal',
+                            !field.value && 'text-muted-foreground'
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {field.value ? (
+                            format(field.value, 'PPP', { locale: es })
+                          ) : (
+                            <span>Seleccione una fecha</span>
+                          )}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={field.onChange}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                  <input type="hidden" name={field.name} value={field.value?.toISOString()} />
                 </FormItem>
               )}
             />
             <DialogFooter>
-              <SubmitButton />
+                <SubmitButton />
             </DialogFooter>
           </form>
         </Form>
       </DialogContent>
     </Dialog>
   );
-}
-
-function SubmitButton() {
-    const { pending } = useFormStatus();
-    return <Button type="submit" disabled={pending}>{pending ? "Adding..." : "Add Contract"}</Button>
 }

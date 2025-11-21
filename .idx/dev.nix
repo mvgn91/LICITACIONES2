@@ -1,43 +1,69 @@
-# To learn more about how to use Nix to configure your environment
-# see: https://firebase.google.com/docs/studio/customize-workspace
-{pkgs}: {
-  # Which nixpkgs channel to use.
-  channel = "stable-24.11"; # or "unstable"
+{ pkgs, ... }: {
+  # Let Nixpkgs pass through configurations to git
+  # See https://github.com/NixOS/nixpkgs/pull/132516
+  # and https://github.com/NixOS/nixpkgs/pull/136934.
+  programs.git.config = {
+    "remote "origin"" = {
+      url = "https://github.com/mvgn/pflicitacion.git";
+      fetch = "+refs/heads/*:refs/remotes/origin/*";
+    };
+  };
+  # Used by the file-changes-action to track changes
+  # across sessions.
+  per-session-init = ''
+    if [ -f ".idx/dev.json" ]; then
+      cp .idx/dev.json .idx/dev.json.bak
+    fi
+  '';
+  # Set the version of Nixpkgs to be used.
+  channel = "stable-23.11"; # or "unstable"
   # Use https://search.nixos.org/packages to find packages
   packages = [
-    pkgs.nodejs_20
-    pkgs.zulu
+    pkgs.nodejs_20 # Bun is also available with pkgs.bun
   ];
   # Sets environment variables in the workspace
   env = {};
-  # This adds a file watcher to startup the firebase emulators. The emulators will only start if
-  # a firebase.json file is written into the user's directory
-  services.firebase.emulators = {
-    # Disabling because we are using prod backends right now
-    detect = false;
-    projectId = "demo-app";
-    services = ["auth" "firestore"];
+  # Functions to run on workspace startup
+  startup = {
+    # This is a one-time setup that will not run again on subsequent refreshes.
+    once = {
+      # Add your one-time setup steps here
+    };
+    # Commands to run on every workspace startup
+    always = {
+      # Add your commands here
+    };
   };
+
+  # Use Devbox to configure your environment.
+  # See https://www.jetpack.io/devbox/docs/ for reference.
+  devbox.enable = true;
+
+  # IDX specific settings
   idx = {
-    # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"
-    extensions = [
-      # "vscodevim.vim"
-    ];
-    workspace = {
-      onCreate = {
-        default.openFiles = [
-          "src/app/page.tsx"
-        ];
-      };
+    # Populates the file explorer with the files you want to work on.
+    main = {
+      "src/app/page.tsx" = "split-right";
+      "src/app/actions.ts" = "split-right";
     };
     # Enable previews and customize configuration
     previews = {
       enable = true;
       previews = {
         web = {
-          command = ["npm" "run" "dev" "--" "--port" "$PORT" "--hostname" "0.0.0.0"];
+          command = ["npm" "run" "dev" "--" "--hostname" "0.0.0.0"];
           manager = "web";
         };
+      };
+    };
+    # The following attributes are used to configure the client IDE
+    client = {
+      # The theme to use in the editor
+      theme = "github-dark";
+      # The font to use in the editor
+      font = {
+        family = "FiraCode-Retina";
+        size = 14;
       };
     };
   };
