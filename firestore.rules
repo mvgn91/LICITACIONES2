@@ -8,16 +8,19 @@ service cloud.firestore {
     }
 
     match /contratos/{contratoId} {
-      // Allow reading, updating, deleting a specific contract if the user is the owner
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Allow reading/listing contracts if the user is querying by their own user ID.
+      // Allow reading a single document if the user is the owner.
+      allow read: if isSignedIn() && (
+        (resource == null && request.query.where.userId == request.auth.uid) ||
+        (resource != null && resource.data.userId == request.auth.uid)
+      );
+
+      // Allow updating/deleting if the user is the owner
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
       
       // Allow creating a contract if the user is signed in and sets themselves as the owner
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
 
-      // A user can list contracts if they are querying by their own user ID.
-      // This rule secures list queries.
-      allow list: if isSignedIn() && request.auth.uid == request.query.where.userId;
-      
       match /estimaciones/{estimacionId} {
         // A user can interact with estimations if they own the parent contract
         allow read, list, create, update, delete: if isSignedIn() && get(/databases/$(database)/documents/contratos/$(contratoId)).data.userId == request.auth.uid;
