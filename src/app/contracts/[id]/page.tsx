@@ -11,7 +11,7 @@ interface PageProps {
   };
 }
 
-async function getContract(id: string): Promise<Contract | null> {
+async function getContract(id: string): Promise<any | null> {
   const contractRef = doc(db, 'contracts', id);
   const contractSnap = await getDoc(contractRef);
 
@@ -30,7 +30,7 @@ async function getContract(id: string): Promise<Contract | null> {
   return {
     id: contractSnap.id,
     ...contractData,
-    contractDate: contractData.contractDate as Timestamp,
+    contractDate: (contractData.contractDate as Timestamp).toMillis(),
     estimations: estimations,
     progress: 0, // Progress will be calculated client-side in real-time
   };

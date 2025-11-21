@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { doc, onSnapshot, collection, query } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   Users,
@@ -34,13 +35,14 @@ interface ContractDetailsProps {
 }
 
 export function ContractDetails({ initialContract }: ContractDetailsProps) {
-  const [contract, setContract] = useState<Contract>(initialContract);
+  const [contract, setContract] = useState<Contract>({...initialContract, contractDate: Timestamp.fromMillis(initialContract.contractDate as any)});
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     const unsubContract = onSnapshot(doc(db, 'contracts', initialContract.id), (doc) => {
       if (doc.exists()) {
-        setContract(prev => ({ ...prev, ...doc.data() }));
+        const data = doc.data();
+        setContract(prev => ({ ...prev, ...data, contractDate: data.contractDate }));
       }
     });
 

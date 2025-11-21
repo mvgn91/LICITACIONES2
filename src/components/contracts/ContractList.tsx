@@ -2,7 +2,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Contract, Estimation } from '@/lib/types';
 import { ContractCard } from './ContractCard';
@@ -14,7 +14,7 @@ interface ContractListProps {
 }
 
 export function ContractList({ initialContracts }: ContractListProps) {
-  const [contracts, setContracts] = useState<Contract[]>(initialContracts);
+  const [contracts, setContracts] = useState<Contract[]>(initialContracts.map(c => ({...c, contractDate: Timestamp.fromMillis(c.contractDate as any)})));
   const [loading, setLoading] = useState(true);
   const estimationListeners = useRef<Record<string, () => void>>({});
 
@@ -79,7 +79,8 @@ export function ContractList({ initialContracts }: ContractListProps) {
             if (index !== -1) {
                 const updated = [...prev];
                 // Only update contract-level fields, progress is handled by estimation listener
-                updated[index] = { ...updated[index], ...doc.data() };
+                const data = doc.data();
+                updated[index] = { ...updated[index], ...data, contractDate: data.contractDate };
                 return updated.sort((a,b) => b.contractDate.toMillis() - a.contractDate.toMillis());
             }
             return prev;

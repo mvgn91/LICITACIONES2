@@ -6,12 +6,12 @@ import { calculateContractProgress } from '@/ai/flows/calculate-contract-progres
 import { EmptyState } from '@/components/contracts/EmptyState';
 import { Timestamp } from 'firebase/firestore';
 
-async function getContracts(): Promise<Contract[]> {
+async function getContracts(): Promise<any[]> {
   // Ensure you have a composite index in Firestore for this query:
   // Collection: contracts, Fields: contractDate (descending)
   const contractsCol = query(collection(db, 'contracts'), orderBy('contractDate', 'desc'));
   const contractSnapshot = await getDocs(contractsCol);
-  const contracts: Contract[] = [];
+  const contracts: any[] = [];
 
   for (const doc of contractSnapshot.docs) {
     const contractData = doc.data() as Omit<Contract, 'id' | 'estimations' | 'progress'>;
@@ -34,10 +34,10 @@ async function getContracts(): Promise<Contract[]> {
       }
     }
 
-    const contract: Contract = {
+    const contract = {
       id: doc.id,
       ...contractData,
-      contractDate: contractData.contractDate as Timestamp,
+      contractDate: (contractData.contractDate as Timestamp).toMillis(),
       estimations,
       progress,
     };
