@@ -61,8 +61,6 @@ export function AddContractModal() {
       nombre: '',
       cliente: '',
       montoConIVA: 0,
-      fechaInicio: new Date(),
-      fechaTerminoEstimada: new Date(),
     },
   });
 
