@@ -1,146 +1,60 @@
+
 {
-  "entities": {
-    "Contract": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Contract",
-      "type": "object",
-      "description": "Represents a contract with associated details and estimations.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Contract entity."
+    "entities": {
+        "Contrato": {
+            "title": "Contrato",
+            "description": "Represents a contract with all its details.",
+            "type": "object",
+            "properties": {
+                "nombre": { "type": "string" },
+                "cliente": { "type": "string" },
+                "montoBase": { "type": "number" },
+                "montoSinIVA": { "type": "number" },
+                "montoConIVA": { "type": "number" },
+                "anticipoMonto": { "type": "number" },
+                "anticipoFecha": { "type": "string", "format": "date-time" },
+                "descripcion": { "type": "string" },
+                "fechaInicio": { "type": "string", "format": "date-time" },
+                "fechaTerminoEstimada": { "type": "string", "format": "date-time" },
+                "observacionesGenerales": { "type": "string" },
+                "estado": { "type": "string", "enum": ["Activo", "Cerrado"] },
+                "docConstructoraOK": { "type": "boolean" },
+                "docConstructoraObs": { "type": "string" },
+                "docControlOK": { "type": "boolean" },
+                "docControlObs": { "type": "string" },
+                "cierreObservaciones": { "type": "string" },
+                "createdAt": { "type": "string", "format": "date-time" },
+                "userId": { "type": "string" }
+            },
+            "required": ["nombre", "cliente", "montoConIVA", "fechaInicio", "fechaTerminoEstimada", "estado", "createdAt", "userId"]
         },
-        "contractName": {
-          "type": "string",
-          "description": "The name of the contract."
-        },
-        "contractDescription": {
-          "type": "string",
-          "description": "A description of the contract."
-        },
-        "startDate": {
-          "type": "string",
-          "description": "The start date of the contract.",
-          "format": "date-time"
-        },
-        "endDate": {
-          "type": "string",
-          "description": "The end date of the contract.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the contract (e.g., 'Active', 'Completed', 'Pending')."
+        "Estimacion": {
+            "title": "Estimacion",
+            "description": "Represents an estimation within a contract.",
+            "type": "object",
+            "properties": {
+                "tipo": { "type": "string", "enum": ["Parcial", "Total"] },
+                "monto": { "type": "number" },
+                "observaciones": { "type": "string" },
+                "ordenCompraUrl": { "type": "string" },
+                "createdAt": { "type": "string", "format": "date-time" },
+                "evidencias": { "type": "array", "items": { "type": "string" } },
+                "isCompleted": { "type": "boolean" }
+            },
+            "required": ["tipo", "monto", "createdAt", "isCompleted"]
         }
-      },
-      "required": [
-        "id",
-        "contractName",
-        "startDate",
-        "endDate",
-        "status"
-      ]
     },
-    "Estimation": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Estimation",
-      "type": "object",
-      "description": "Represents an estimation associated with a contract.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Estimation entity."
+    "auth": {
+        "providers": ["anonymous"]
+    },
+    "firestore": {
+        "/contratos/{contratoId}": {
+            "schema": { "$ref": "#/entities/Contrato" },
+            "description": "Stores all contracts. Access is controlled by userId field."
         },
-        "contractId": {
-          "type": "string",
-          "description": "Reference to Contract. (Relationship: Contract 1:N Estimation)"
-        },
-        "estimationName": {
-          "type": "string",
-          "description": "The name or title of the estimation."
-        },
-        "estimationDescription": {
-          "type": "string",
-          "description": "A description of what the estimation covers."
-        },
-        "estimatedCost": {
-          "type": "number",
-          "description": "The estimated cost associated with this estimation."
-        },
-        "isCompleted": {
-          "type": "boolean",
-          "description": "Indicates whether the estimation is completed."
-        },
-        "evidenciaUrls": {
-          "type": "array",
-          "description": "Array of URLs pointing to evidence files related to this estimation.",
-          "items": {
-            "type": "string"
-          }
+        "/contratos/{contratoId}/estimaciones/{estimacionId}": {
+            "schema": { "$ref": "#/entities/Estimacion" },
+            "description": "Stores estimations for a specific contract."
         }
-      },
-      "required": [
-        "id",
-        "contractId",
-        "estimationName",
-        "estimatedCost",
-        "isCompleted"
-      ]
     }
-  },
-  "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
-  },
-  "firestore": {
-    "structure": [
-      {
-        "path": "/users/{userId}/contracts/{contractId}",
-        "definition": {
-          "entityName": "Contract",
-          "schema": {
-            "$ref": "#/backend/entities/Contract"
-          },
-          "description": "Stores contract data owned by a specific user. Includes 'userId' as a parameter for identifying the contract owner, enabling path-based ownership security rules.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The ID of the user who owns the contract."
-            },
-            {
-              "name": "contractId",
-              "description": "The unique ID of the contract."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/contracts/{contractId}/estimations/{estimationId}",
-        "definition": {
-          "entityName": "Estimation",
-          "schema": {
-            "$ref": "#/backend/entities/Estimation"
-          },
-          "description": "Stores estimation data associated with a specific contract. Includes 'userId' and 'contractId' as parameters for enforcing path-based ownership security rules. This path enforces that an estimation always belongs to a contract, which always belongs to a user.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The ID of the user who owns the contract, which contains the estimation."
-            },
-            {
-              "name": "contractId",
-              "description": "The ID of the contract that contains the estimation."
-            },
-            {
-              "name": "estimationId",
-              "description": "The unique ID of the estimation."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore data structure is designed to manage contracts and their associated estimations efficiently. It leverages path-based ownership for contracts and their estimations, ensuring clear ownership and simplified security rules.  Each `contract` is stored under a `user` document.  `estimations` are stored as subcollections of the contract. This design enables efficient querying and retrieval of data, while maintaining a clear separation of concerns. The design ensures Authorization Independence by eliminating the need for `get()` calls in security rules. This is achieved through the chosen path structure, which inherently defines ownership. Additionally, the structure naturally supports QAPs, as list operations can be securely performed on the `/users/{userId}/contracts` and `/users/{userId}/contracts/{contractId}/estimations` collections without exposing unauthorized data. The use of hierarchical paths for user-owned data makes it easier to manage access control based on user identity."
-  }
 }

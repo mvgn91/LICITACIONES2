@@ -26,16 +26,13 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { addDoc, collection, serverTimestamp, getFirestore } from 'firebase/firestore';
+import { collection, serverTimestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { app } from '@/lib/firebase';
 import { Textarea } from '../ui/textarea';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { useFirestore, addDocumentNonBlocking } from '@/firebase';
 
-const db = getFirestore(app);
 const storage = getStorage(app);
-
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_FILE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
@@ -54,42 +51,12 @@ const estimationSchema = z.object({
 
 type EstimationFormValues = z.infer<typeof estimationSchema>;
 
-async function addEstimationAction(contractId: string, data: EstimationFormValues) {
-    let evidenceUrl = '';
-    if (data.file) {
-        const storageRef = ref(storage, `contracts/${contractId}/estimations/${Date.now()}_${data.file.name}`);
-        const snapshot = await uploadBytes(storageRef, data.file);
-        evidenceUrl = await getDownloadURL(snapshot.ref);
-    }
-    
-    const estimationData = {
-        tipo: 'Parcial' as const,
-        monto: data.monto,
-        observaciones: data.observaciones,
-        isCompleted: false,
-        createdAt: serverTimestamp(),
-        evidencias: evidenceUrl ? [evidenceUrl] : [],
-    };
-    
-    const collectionRef = collection(db, `contratos/${contractId}/estimaciones`);
-
-    return addDoc(collectionRef, estimationData).catch(async (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: collectionRef.path,
-          operation: 'create',
-          requestResourceData: estimationData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        // Re-throw the original error to be caught by the calling function
-        throw serverError;
-    });
-}
-
 export function AddEstimationModal({ contractId }: { contractId: string }) {
   const [open, setOpen] = useState(false);
   const [fileName, setFileName] = useState('');
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const firestore = useFirestore();
 
   const form = useForm<EstimationFormValues>({
     resolver: zodResolver(estimationSchema),
@@ -101,20 +68,36 @@ export function AddEstimationModal({ contractId }: { contractId: string }) {
 
   const onSubmit = (data: EstimationFormValues) => {
     startTransition(async () => {
-      try {
-        await addEstimationAction(contractId, data);
-        toast({ title: 'Éxito', description: 'Estimación agregada correctamente.' });
-        setOpen(false);
-        form.reset();
-        setFileName('');
-      } catch (error) {
-        // The permission error is already emitted, so we just need to prevent the success toast.
-        // The FirebaseErrorListener will show the detailed error.
-        // We can show a generic toast here if we want.
-        if (!(error instanceof FirestorePermissionError)) {
-             toast({ title: 'Error', description: 'No se pudo agregar la estimación.', variant: 'destructive' });
+      let evidenceUrl = '';
+      if (data.file) {
+        const storageRef = ref(storage, `contracts/${contractId}/estimations/${Date.now()}_${data.file.name}`);
+        try {
+          const snapshot = await uploadBytes(storageRef, data.file);
+          evidenceUrl = await getDownloadURL(snapshot.ref);
+        } catch (error) {
+          console.error("Error uploading file:", error);
+          toast({ title: 'Error de Carga', description: 'No se pudo subir el archivo de evidencia.', variant: 'destructive' });
+          return;
         }
       }
+      
+      const estimationData = {
+          tipo: 'Parcial' as const,
+          monto: data.monto,
+          observaciones: data.observaciones,
+          isCompleted: false,
+          createdAt: serverTimestamp(),
+          evidencias: evidenceUrl ? [evidenceUrl] : [],
+      };
+      
+      const collectionRef = collection(firestore, `contratos/${contractId}/estimaciones`);
+
+      await addDocumentNonBlocking(collectionRef, estimationData);
+      
+      toast({ title: 'Éxito', description: 'Estimación agregada correctamente.' });
+      setOpen(false);
+      form.reset();
+      setFileName('');
     });
   };
   

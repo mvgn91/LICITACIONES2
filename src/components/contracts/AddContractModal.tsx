@@ -1,8 +1,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
-import { useFormState, useFormStatus } from 'react-dom';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -36,9 +35,9 @@ import {
 } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useToast } from '@/hooks/use-toast';
-import { addContract } from '@/app/actions';
 import { cn } from '@/lib/utils';
-import { useEffect } from 'react';
+import { useAuth, useFirestore, addDocumentNonBlocking } from '@/firebase';
+import { collection, serverTimestamp, Timestamp } from 'firebase/firestore';
 
 const contractSchema = z.object({
   nombre: z.string().min(1, 'El nombre del proyecto es requerido'),
@@ -50,24 +49,11 @@ const contractSchema = z.object({
 
 type ContractFormValues = z.infer<typeof contractSchema>;
 
-function SubmitButton() {
-    const { pending } = useFormStatus();
-    return (
-        <Button type="submit" disabled={pending}>
-            {pending ? 'Agregando...' : 'Agregar Contrato'}
-        </Button>
-    );
-}
-
-const initialState = {
-    message: '',
-    errors: null,
-}
-
 export function AddContractModal() {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
-  const [state, formAction] = useFormState(addContract, initialState);
+  const { user } = useAuth();
+  const firestore = useFirestore();
 
   const form = useForm<ContractFormValues>({
     resolver: zodResolver(contractSchema),
@@ -80,22 +66,40 @@ export function AddContractModal() {
     },
   });
 
-  useEffect(() => {
-    if (state.message && !state.errors) {
-      toast({
-        title: 'Contrato Agregado',
-        description: state.message,
-      });
-      setOpen(false);
-      form.reset();
-    } else if (state.message && state.errors) {
+  async function onSubmit(data: ContractFormValues) {
+    if (!user || !firestore) {
       toast({
         title: 'Error',
-        description: state.message,
+        description: 'Debe iniciar sesión para crear un contrato.',
         variant: 'destructive',
       });
+      return;
     }
-  }, [state, toast, form]);
+    
+    const newContractData = {
+        ...data,
+        fechaInicio: Timestamp.fromDate(data.fechaInicio),
+        fechaTerminoEstimada: Timestamp.fromDate(data.fechaTerminoEstimada),
+        createdAt: serverTimestamp(),
+        estado: 'Activo' as const,
+        userId: user.uid,
+        montoBase: 0,
+        montoSinIVA: 0,
+        descripcion: '',
+        docConstructoraOK: false,
+        docControlOK: false,
+    };
+    
+    const contractsCollection = collection(firestore, 'contratos');
+    await addDocumentNonBlocking(contractsCollection, newContractData);
+
+    toast({
+      title: 'Contrato Agregado',
+      description: 'El nuevo contrato ha sido agregado exitosamente.',
+    });
+    setOpen(false);
+    form.reset();
+  }
   
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
@@ -120,7 +124,7 @@ export function AddContractModal() {
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form action={formAction} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="nombre"
@@ -195,8 +199,6 @@ export function AddContractModal() {
                     </PopoverContent>
                   </Popover>
                   <FormMessage />
-                  {/* Hidden input to pass date to server action */}
-                  <input type="hidden" name={field.name} value={field.value?.toISOString()} />
                 </FormItem>
               )}
             />
@@ -234,12 +236,13 @@ export function AddContractModal() {
                     </PopoverContent>
                   </Popover>
                   <FormMessage />
-                  <input type="hidden" name={field.name} value={field.value?.toISOString()} />
                 </FormItem>
               )}
             />
             <DialogFooter>
-                <SubmitButton />
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Agregando...' : 'Agregar Contrato'}
+              </Button>
             </DialogFooter>
           </form>
         </Form>

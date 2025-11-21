@@ -1,4 +1,5 @@
 
+'use client';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -20,16 +21,43 @@ import {
 import type { Contrato } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 import { Badge } from '../ui/badge';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { calculateContractProgress } from '@/ai/flows/calculate-contract-progress';
 
 interface ContractCardProps {
   contract: Contrato;
-  progress: number; // Progress is now passed as a prop
 }
 
-export function ContractCard({ contract, progress }: ContractCardProps) {
+export function ContractCard({ contract }: ContractCardProps) {
+  const [progress, setProgress] = useState(0);
+  const firestore = useFirestore();
+
+  const estimationsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, `contratos/${contract.id}/estimaciones`));
+  }, [firestore, contract.id]);
+
+  const { data: estimations } = useCollection(estimationsQuery);
+
+  useEffect(() => {
+    const updateProgress = async () => {
+      if (estimations) {
+        if (estimations.length > 0) {
+          const flowInput = estimations.map(e => ({ isCompleted: !!e.isCompleted }));
+          const result = await calculateContractProgress({ estimations: flowInput });
+          setProgress(Math.round(result.progress));
+        } else {
+          setProgress(0);
+        }
+      }
+    };
+    updateProgress();
+  }, [estimations]);
+
   const progressColor = progress < 100 ? 'bg-accent' : 'bg-green-500';
 
-  // Safely convert Firestore Timestamp to Date
   const getFormattedDate = (timestamp: any) => {
     if (timestamp && typeof timestamp.toDate === 'function') {
       return format(timestamp.toDate(), 'PPP', { locale: es });

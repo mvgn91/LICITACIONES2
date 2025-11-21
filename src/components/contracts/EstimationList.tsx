@@ -2,7 +2,7 @@
 'use client';
 
 import { useTransition } from 'react';
-import type { Estimation } from '@/lib/types';
+import type { Estimacion } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card } from '@/components/ui/card';
@@ -11,45 +11,51 @@ import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { FileDown, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
-import { doc, updateDoc, getFirestore } from 'firebase/firestore';
-import { app } from '@/lib/firebase';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
-
-const db = getFirestore(app);
+import { doc } from 'firebase/firestore';
+import { useFirestore, updateDocumentNonBlocking } from '@/firebase';
+import { Skeleton } from '../ui/skeleton';
 
 interface EstimationListProps {
   contractId: string;
   estimations: any[];
+  isLoading: boolean;
 }
 
-export function EstimationList({ contractId, estimations }: EstimationListProps) {
+export function EstimationList({ contractId, estimations, isLoading }: EstimationListProps) {
   const { toast } = useToast();
   const [isPending, startTransition] = useTransition();
+  const firestore = useFirestore();
 
   const handleStatusChange = (estimationId: string, isCompleted: boolean) => {
     startTransition(() => {
-        const estimationRef = doc(db, `contratos/${contractId}/estimaciones`, estimationId);
+        const estimationRef = doc(firestore, `contratos/${contractId}/estimaciones`, estimationId);
         const updateData = { isCompleted };
         
-        updateDoc(estimationRef, updateData)
-            .then(() => {
-                toast({
-                    title: 'Estado Actualizado',
-                    description: 'El estado de la estimación ha sido guardado.',
-                });
-            })
-            .catch(async (serverError) => {
-                const permissionError = new FirestorePermissionError({
-                    path: estimationRef.path,
-                    operation: 'update',
-                    requestResourceData: updateData,
-                });
-                errorEmitter.emit('permission-error', permissionError);
-                // No need for a toast here, the listener will handle it.
-            });
+        updateDocumentNonBlocking(estimationRef, updateData);
+        
+        toast({
+            title: 'Estado Actualizado',
+            description: 'El estado de la estimación ha sido guardado.',
+        });
     });
   };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {[...Array(3)].map((_, i) => (
+          <Card key={i} className="flex items-center p-4">
+            <Skeleton className="h-5 w-5 mr-4" />
+            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
+              <Skeleton className="h-5 w-3/4" />
+              <Skeleton className="h-6 w-24 justify-self-start md:justify-self-center" />
+              <Skeleton className="h-5 w-28 justify-self-start md:justify-self-end" />
+            </div>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   if (!estimations || estimations.length === 0) {
     return (

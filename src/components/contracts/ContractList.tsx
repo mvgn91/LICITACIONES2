@@ -1,46 +1,32 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
-import { collection, onSnapshot, query, orderBy, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { useMemo } from 'react';
+import { collection, query, orderBy } from 'firebase/firestore';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Contrato } from '@/lib/types';
 import { ContractCard } from './ContractCard';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EmptyState } from './EmptyState';
 
 interface ContractListProps {
-  initialContracts: any[];
+  userId: string;
 }
 
-export function ContractList({ initialContracts }: ContractListProps) {
-  const [contracts, setContracts] = useState<any[]>(initialContracts);
-  const [loading, setLoading] = useState(initialContracts.length === 0);
+export function ContractList({ userId }: ContractListProps) {
+  const firestore = useFirestore();
 
-  useEffect(() => {
-    const q = query(collection(db, 'contratos'), orderBy('createdAt', 'desc'));
+  const contractsQuery = useMemoFirebase(
+    () => {
+      if (!firestore || !userId) return null;
+      return query(collection(firestore, 'contratos'), orderBy('createdAt', 'desc'));
+    },
+    [firestore, userId]
+  );
+  
+  const { data: contracts, isLoading } = useCollection<Contrato>(contractsQuery);
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const serverContracts: any[] = [];
-      snapshot.forEach((doc) => {
-          const data = doc.data();
-          serverContracts.push({
-              id: doc.id,
-              ...data,
-              fechaInicio: (data.fechaInicio as Timestamp).toMillis(),
-              fechaTerminoEstimada: (data.fechaTerminoEstimada as Timestamp).toMillis(),
-              createdAt: (data.createdAt as Timestamp).toMillis(),
-              anticipoFecha: data.anticipoFecha ? (data.anticipoFecha as Timestamp).toMillis() : null,
-          });
-      });
-      
-      setContracts(serverContracts);
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {[...Array(3)].map((_, i) => (
@@ -60,11 +46,15 @@ export function ContractList({ initialContracts }: ContractListProps) {
       </div>
     );
   }
+  
+  if (!contracts || contracts.length === 0) {
+    return <EmptyState />;
+  }
 
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {contracts.map((contract) => (
-        <ContractCard key={contract.id} contract={contract} progress={0} />
+        <ContractCard key={contract.id} contract={contract} />
       ))}
     </div>
   );

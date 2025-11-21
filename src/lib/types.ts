@@ -21,6 +21,7 @@ export interface Contrato {
   docControlObs?: string;
   cierreObservaciones?: string;
   createdAt: Timestamp;
+  userId: string;
 }
 
 export interface Estimacion {

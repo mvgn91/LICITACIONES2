@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { doc, onSnapshot, collection, query, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import {
   Users,
   Calendar,
@@ -14,7 +13,7 @@ import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import Link from 'next/link';
 
-import type { Contrato, Estimacion } from '@/lib/types';
+import type { Contrato } from '@/lib/types';
 import {
   Card,
   CardContent,
@@ -28,81 +27,96 @@ import { Button } from '@/components/ui/button';
 import { calculateContractProgress } from '@/ai/flows/calculate-contract-progress';
 import { EstimationList } from './EstimationList';
 import { AddEstimationModal } from './AddEstimationModal';
+import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { Skeleton } from '../ui/skeleton';
 
 interface ContractDetailsProps {
-  initialContract: any;
+  contractId: string;
 }
 
-export function ContractDetails({ initialContract }: ContractDetailsProps) {
-  const [contract, setContract] = useState<any>(initialContract);
-  const [estimations, setEstimations] = useState<any[]>(initialContract.estimations || []);
+export function ContractDetails({ contractId }: ContractDetailsProps) {
   const [progress, setProgress] = useState(0);
+  const firestore = useFirestore();
+
+  const contractRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return doc(firestore, 'contratos', contractId);
+  }, [firestore, contractId]);
+
+  const { data: contract, isLoading: isContractLoading } = useDoc<Contrato>(contractRef);
+
+  const estimationsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, `contratos/${contractId}/estimaciones`));
+  }, [firestore, contractId]);
+  
+  const { data: estimations, isLoading: areEstimationsLoading } = useCollection(estimationsQuery);
 
   useEffect(() => {
-    const unsubContract = onSnapshot(doc(db, 'contratos', initialContract.id), (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        setContract({
-            ...data,
-            id: doc.id,
-            fechaInicio: (data.fechaInicio as Timestamp).toMillis(),
-            fechaTerminoEstimada: (data.fechaTerminoEstimada as Timestamp).toMillis(),
-            createdAt: (data.createdAt as Timestamp).toMillis(),
-            anticipoFecha: data.anticipoFecha ? (data.anticipoFecha as Timestamp).toMillis() : null
-        });
-      }
-    });
-
-    const q = query(collection(db, `contratos/${initialContract.id}/estimaciones`));
-    const unsubEstimations = onSnapshot(q, async (snapshot) => {
-        const ests = snapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                id: doc.id,
-                ...data,
-                createdAt: (data.createdAt as Timestamp).toMillis()
-            }
-        });
-        setEstimations(ests);
-
-        if (ests.length > 0) {
-            try {
-                // The AI flow expects a boolean `isCompleted`, ensure your data has it.
-                const flowInput = ests.map(e => ({ isCompleted: !!e.isCompleted }));
-                const result = await calculateContractProgress({ estimations: flowInput });
-                setProgress(Math.round(result.progress));
-            } catch (error) {
-                console.error("Progress calculation failed", error);
-                const completed = ests.filter(e => e.isCompleted).length;
-                setProgress(ests.length > 0 ? Math.round((completed / ests.length) * 100) : 0);
-            }
+    const updateProgress = async () => {
+      if (estimations) {
+        if (estimations.length > 0) {
+          const flowInput = estimations.map(e => ({ isCompleted: !!e.isCompleted }));
+          const result = await calculateContractProgress({ estimations: flowInput });
+          setProgress(Math.round(result.progress));
         } else {
-            setProgress(0);
+          setProgress(0);
         }
-    });
-
-    // Initial calculation
-    (async () => {
-        if (initialContract.estimations.length > 0) {
-            const flowInput = initialContract.estimations.map((e: any) => ({ isCompleted: !!e.isCompleted }));
-            const result = await calculateContractProgress({ estimations: flowInput });
-            setProgress(Math.round(result.progress));
-        }
-    })();
-
-
-    return () => {
-      unsubContract();
-      unsubEstimations();
+      }
     };
-  }, [initialContract.id, initialContract.estimations]);
+    updateProgress();
+  }, [estimations]);
   
   const getFormattedDate = (timestamp: any) => {
     if (!timestamp) return 'N/A';
+    if (timestamp.toDate) { // It's a Firestore Timestamp
+      return format(timestamp.toDate(), 'PPP', { locale: es });
+    }
     return format(new Date(timestamp), 'PPP', { locale: es });
   };
 
   const progressColor = useMemo(() => progress < 100 ? 'bg-accent' : 'bg-green-500', [progress]);
+  
+  if (isContractLoading) {
+     return (
+      <div className="space-y-8">
+        <Skeleton className="h-10 w-40" />
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-8 w-3/4 mb-2" />
+            <Skeleton className="h-5 w-1/4" />
+            <div className="pt-2">
+              <Skeleton className="h-2 w-full" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-6 w-full" />
+              <Skeleton className="h-8 w-1/2" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-8 w-1/2" />
+            <Skeleton className="h-5 w-3/4" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!contract) {
+    return <div>Contrato no encontrado.</div>
+  }
 
   return (
     <div className="space-y-8">
@@ -158,7 +172,7 @@ export function ContractDetails({ initialContract }: ContractDetailsProps) {
             <AddEstimationModal contractId={contract.id} />
         </CardHeader>
         <CardContent>
-            <EstimationList contractId={contract.id} estimations={estimations} />
+            <EstimationList contractId={contract.id} estimations={estimations || []} isLoading={areEstimationsLoading} />
         </CardContent>
       </Card>
     </div>

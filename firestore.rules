@@ -1,131 +1,25 @@
-/**
- * Core Philosophy: This ruleset enforces a strict user-ownership model. All data is
- * considered private and is only accessible by the user who created it. There is no
- * public or shared data.
- *
- * Data Structure: Data is organized hierarchically to reflect ownership. All user-
- * specific content, such as contracts and their estimations, is stored in subcollections
- * under a path tied to the user's unique ID (`/users/{userId}`).
- * - /users/{userId}/contracts/{contractId}
- * - /users/{userId}/contracts/{contractId}/estimations/{estimationId}
- *
- * Key Security Decisions:
- * - Strict Ownership: A user can only access documents located under their own
- *   `/users/{userId}` path segment. Cross-user access is explicitly denied.
- * - No Public Listing: It is not possible to list all users or all contracts.
- *   Listing is only permitted within a user's own data tree (e.g., a user can
- *   list their own contracts).
- * - Path-Based Security: Authorization decisions are made using the `{userId}` wildcard
- *   in the path. This is highly performant as it avoids extra database reads (`get()`
- *   calls) to check for ownership.
- *
- * Denormalization for Authorization: The path structure `/users/{userId}/...` serves
- * as a form of denormalization, embedding the owner's ID directly into the document
- * path. This allows for simple, fast, and secure ownership checks like `isOwner(userId)`.
- *
- * Structural Segregation: This model uses separate collections for each data type,
- * with estimations nested under the contracts they belong to. This structural
- * segregation ensures that a document's path inherently defines its owner and context,
- * simplifying rule logic.
- */
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions for concise and readable rules.
-
-    /**
-     * Checks if a user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the currently authenticated user's UID matches the provided userId.
-     * This is the primary function for enforcing user ownership.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
+    // Rules for 'contratos' collection
+    match /contratos/{contratoId} {
+      allow read: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
 
-    /**
-     * For update and delete operations, checks ownership AND ensures the document
-     * already exists. This prevents modifying or deleting non-existent data.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
+      // Rules for 'estimaciones' subcollection
+      match /estimaciones/{estimacionId} {
+        allow read, list: if isSignedIn() && get(/databases/$(database)/documents/contratos/$(contratoId)).data.userId == request.auth.uid;
+        allow create: if isSignedIn() && get(/databases/$(database)/documents/contratos/$(contratoId)).data.userId == request.auth.uid;
+        allow update, delete: if isSignedIn() && get(/databases/$(database)/documents/contratos/$(contratoId)).data.userId == request.auth.uid;
+      }
     }
-
-    /**
-     * On create, validates that the contract's internal 'id' field matches the
-     * document ID from the path, ensuring relational integrity.
-     */
-    function hasValidContractDataForCreate(contractId) {
-      let incomingData = request.resource.data;
-      return incomingData.id == contractId;
-    }
-
-    /**
-     * On update, ensures that the contract's internal 'id' field cannot be changed.
-     * This preserves the immutable link between the document and its ID.
-     */
-    function isContractDataImmutable() {
-      // Prototyping Mode: Only the 'id' field is validated for immutability.
-      // The client does not need to send the 'id' field on update, but if it does,
-      // it must not have changed.
-      return request.resource.data.id == resource.data.id;
-    }
-
-    /**
-     * On create, validates that the estimation's internal 'id' and 'contractId'
-     * fields match the document IDs from the path.
-     */
-    function hasValidEstimationDataForCreate(contractId, estimationId) {
-      let incomingData = request.resource.data;
-      return incomingData.id == estimationId
-          && incomingData.contractId == contractId;
-    }
-
-    /**
-     * On update, ensures the estimation's key relational fields ('id' and
-     * 'contractId') are immutable.
-     */
-    function isEstimationDataImmutable() {
-      // Prototyping Mode: Only relational IDs are validated for immutability.
-      return request.resource.data.id == resource.data.id
-          && request.resource.data.contractId == resource.data.contractId;
-    }
-
-    /**
-     * @description Rules for a user's private contracts.
-     * @path /users/{userId}/contracts/{contractId}
-     * @allow (get) A signed-in user ('user_abc') reading their own contract.
-     * @deny (get) A signed-in user ('user_xyz') trying to read another user's ('user_abc') contract.
-     * @principle Restricts access to a user's own data tree.
-     */
-    match /users/{userId}/contracts/{contractId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && hasValidContractDataForCreate(contractId);
-      allow update: if isExistingOwner(userId) && isContractDataImmutable();
-      allow delete: if isExistingOwner(userId);
-    }
-
-    /**
-     * @description Rules for estimations, which are sub-documents of a contract.
-     * @path /users/{userId}/contracts/{contractId}/estimations/{estimationId}
-     * @allow (create) A signed-in user ('user_abc') creating an estimation for their own contract.
-     * @deny (list) A signed-in user ('user_xyz') trying to list estimations from another user's contract.
-     * @principle Enforces inherited ownership from the parent document path.
-     */
-    match /users/{userId}/contracts/{contractId}/estimations/{estimationId} {
-      allow get: if isOwner(userId);
-      allow list: if isOwner(userId);
-      allow create: if isOwner(userId) && hasValidEstimationDataForCreate(contractId, estimationId);
-      allow update: if isExistingOwner(userId) && isEstimationDataImmutable();
-      allow delete: if isExistingOwner(userId);
-    }
-
   }
 }
