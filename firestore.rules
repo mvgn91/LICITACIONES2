@@ -9,16 +9,19 @@ service cloud.firestore {
 
     // Rules for 'contratos' collection
     match /contratos/{contratoId} {
-      allow read: if isSignedIn();
-      allow list: if isSignedIn();
+      // Allow reading, updating, deleting a specific contract if the user is the owner
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      // Allow creating a contract if the user is signed in and sets themselves as the owner
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
 
+      // Allow a user to list only their own contracts
+      allow list: if isSignedIn() && request.query.get('userId') == request.auth.uid;
+      
       // Rules for 'estimaciones' subcollection
       match /estimaciones/{estimacionId} {
-        allow read, list: if isSignedIn() && get(/databases/$(database)/documents/contratos/$(contratoId)).data.userId == request.auth.uid;
-        allow create: if isSignedIn() && get(/databases/$(database)/documents/contratos/$(contratoId)).data.userId == request.auth.uid;
-        allow update, delete: if isSignedIn() && get(/databases/$(database)/documents/contratos/$(contratoId)).data.userId == request.auth.uid;
+        // A user can interact with estimations if they own the parent contract
+        allow read, list, create, update, delete: if isSignedIn() && get(/databases/$(database)/documents/contratos/$(contratoId)).data.userId == request.auth.uid;
       }
     }
   }

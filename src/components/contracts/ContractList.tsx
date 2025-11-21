@@ -2,7 +2,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { collection, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, where } from 'firebase/firestore';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import type { Contrato } from '@/lib/types';
 import { ContractCard } from './ContractCard';
@@ -19,7 +19,11 @@ export function ContractList({ userId }: ContractListProps) {
   const contractsQuery = useMemoFirebase(
     () => {
       if (!firestore || !userId) return null;
-      return query(collection(firestore, 'contratos'), orderBy('createdAt', 'desc'));
+      return query(
+        collection(firestore, 'contratos'),
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc')
+      );
     },
     [firestore, userId]
   );
