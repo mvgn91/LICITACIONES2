@@ -8,12 +8,11 @@ service cloud.firestore {
     }
 
     match /contratos/{contratoId} {
-      // Allow reading/listing contracts if the user is querying by their own user ID.
-      // Allow reading a single document if the user is the owner.
-      allow read: if isSignedIn() && (
-        (resource == null && request.query.where.userId == request.auth.uid) ||
-        (resource != null && resource.data.userId == request.auth.uid)
-      );
+      // Allow reading/listing contracts if the user is the owner.
+      // For 'get', it checks the resource's data.
+      // For 'list', it enforces that the query must include a 'where' clause on userId.
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow list: if isSignedIn() && request.query.where.userId == request.auth.uid;
 
       // Allow updating/deleting if the user is the owner
       allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
@@ -23,7 +22,7 @@ service cloud.firestore {
 
       match /estimaciones/{estimacionId} {
         // A user can interact with estimations if they own the parent contract
-        allow read, list, create, update, delete: if isSignedIn() && get(/databases/$(database)/documents/contratos/$(contratoId)).data.userId == request.auth.uid;
+        allow read, write: if isSignedIn() && get(/databases/$(database)/documents/contratos/$(contratoId)).data.userId == request.auth.uid;
       }
     }
   }
