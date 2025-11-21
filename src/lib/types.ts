@@ -1,36 +1,33 @@
-
-import type { Timestamp } from 'firebase/firestore';
-
 export interface Contrato {
-  id: string; // Firestore document ID
+  id: string;
   nombre: string;
   cliente: string;
   montoBase: number;
   montoSinIVA: number;
   montoConIVA: number;
   anticipoMonto?: number;
-  anticipoFecha?: Timestamp;
+  anticipoFecha?: number; // timestamp
   descripcion: string;
-  fechaInicio: Timestamp;
-  fechaTerminoEstimada: Timestamp;
+  fechaInicio: number; // timestamp
+  fechaTerminoEstimada: number; // timestamp
   observacionesGenerales?: string;
   estado: 'Activo' | 'Cerrado';
-  docConstructoraOK: boolean;
+  docConstructoraOK?: boolean;
   docConstructoraObs?: string;
-  docControlOK: boolean;
+  docControlOK?: boolean;
   docControlObs?: string;
   cierreObservaciones?: string;
-  createdAt: Timestamp;
+  createdAt: number; // timestamp
   userId: string;
 }
 
 export interface Estimacion {
-  id: string; // Firestore document ID
+  id: string;
   tipo: 'Parcial' | 'Total';
   monto: number;
   observaciones?: string;
   ordenCompraUrl?: string;
-  createdAt: Timestamp;
+  createdAt: number; // timestamp
   evidencias?: string[];
   isCompleted: boolean;
 }

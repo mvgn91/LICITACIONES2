@@ -1,6 +1,4 @@
 
-'use client';
-
 import { notFound } from 'next/navigation';
 import { ContractDetails } from '@/components/contracts/ContractDetails';
 

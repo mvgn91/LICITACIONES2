@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useTransition } from 'react';
+import { useState } from 'react';
 import type { Estimacion } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -11,51 +11,27 @@ import { Badge } from '../ui/badge';
 import { cn } from '@/lib/utils';
 import { FileDown, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
-import { doc } from 'firebase/firestore';
-import { useFirestore, updateDocumentNonBlocking } from '@/firebase';
-import { Skeleton } from '../ui/skeleton';
 
 interface EstimationListProps {
   contractId: string;
-  estimations: any[];
-  isLoading: boolean;
+  estimations: Estimacion[];
 }
 
-export function EstimationList({ contractId, estimations, isLoading }: EstimationListProps) {
+export function EstimationList({ contractId, estimations: initialEstimations }: EstimationListProps) {
   const { toast } = useToast();
-  const [isPending, startTransition] = useTransition();
-  const firestore = useFirestore();
+  const [estimations, setEstimations] = useState(initialEstimations.map(e => ({...e, isCompleted: false})));
 
   const handleStatusChange = (estimationId: string, isCompleted: boolean) => {
-    startTransition(() => {
-        const estimationRef = doc(firestore, `contratos/${contractId}/estimaciones`, estimationId);
-        const updateData = { isCompleted };
-        
-        updateDocumentNonBlocking(estimationRef, updateData);
-        
-        toast({
-            title: 'Estado Actualizado',
-            description: 'El estado de la estimación ha sido guardado.',
-        });
+    setEstimations(currentEstimations =>
+      currentEstimations.map(e =>
+        e.id === estimationId ? { ...e, isCompleted } : e
+      )
+    );
+    toast({
+      title: 'Estado Actualizado (Simulado)',
+      description: 'El estado de la estimación ha sido actualizado en la vista local.',
     });
   };
-
-  if (isLoading) {
-    return (
-      <div className="space-y-4">
-        {[...Array(3)].map((_, i) => (
-          <Card key={i} className="flex items-center p-4">
-            <Skeleton className="h-5 w-5 mr-4" />
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
-              <Skeleton className="h-5 w-3/4" />
-              <Skeleton className="h-6 w-24 justify-self-start md:justify-self-center" />
-              <Skeleton className="h-5 w-28 justify-self-start md:justify-self-end" />
-            </div>
-          </Card>
-        ))}
-      </div>
-    );
-  }
 
   if (!estimations || estimations.length === 0) {
     return (
@@ -83,7 +59,6 @@ export function EstimationList({ contractId, estimations, isLoading }: Estimatio
                 checked={estimation.isCompleted}
                 onCheckedChange={(checked) => handleStatusChange(estimation.id, !!checked)}
                 className="mr-4 h-5 w-5"
-                disabled={isPending}
                 aria-label={`Marcar estimación ${estimation.observaciones} como completada`}
             />
             <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2 items-center">

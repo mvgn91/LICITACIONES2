@@ -1,19 +1,15 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { doc, onSnapshot, collection, query, Timestamp } from 'firebase/firestore';
+import { useMemo } from 'react';
 import {
   Users,
   Calendar,
   DollarSign,
   ArrowLeft,
 } from 'lucide-react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
 import Link from 'next/link';
 
-import type { Contrato } from '@/lib/types';
 import {
   Card,
   CardContent,
@@ -22,98 +18,34 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { calculateContractProgress } from '@/ai/flows/calculate-contract-progress';
 import { EstimationList } from './EstimationList';
 import { AddEstimationModal } from './AddEstimationModal';
-import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { Skeleton } from '../ui/skeleton';
+import { mockContratos } from '@/lib/mock-data';
 
 interface ContractDetailsProps {
   contractId: string;
 }
 
 export function ContractDetails({ contractId }: ContractDetailsProps) {
-  const [progress, setProgress] = useState(0);
-  const firestore = useFirestore();
+  const contract = mockContratos.find(c => c.id === contractId);
 
-  const contractRef = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return doc(firestore, 'contratos', contractId);
-  }, [firestore, contractId]);
-
-  const { data: contract, isLoading: isContractLoading } = useDoc<Contrato>(contractRef);
-
-  const estimationsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, `contratos/${contractId}/estimaciones`));
-  }, [firestore, contractId]);
-  
-  const { data: estimations, isLoading: areEstimationsLoading } = useCollection(estimationsQuery);
-
-  useEffect(() => {
-    const updateProgress = async () => {
-      if (estimations) {
-        if (estimations.length > 0) {
-          const flowInput = estimations.map(e => ({ isCompleted: !!e.isCompleted }));
-          const result = await calculateContractProgress({ estimations: flowInput });
-          setProgress(Math.round(result.progress));
-        } else {
-          setProgress(0);
-        }
-      }
-    };
-    updateProgress();
-  }, [estimations]);
-  
-  const getFormattedDate = (timestamp: any) => {
-    if (!timestamp) return 'N/A';
-    if (timestamp.toDate) { // It's a Firestore Timestamp
-      return format(timestamp.toDate(), 'PPP', { locale: es });
+  const calculateProgress = () => {
+    if (!contract || !contract.estimaciones || contract.estimaciones.length === 0) {
+      return 0;
     }
-    return format(new Date(timestamp), 'PPP', { locale: es });
+    const totalMonto = contract.montoConIVA;
+    const montoEstimado = contract.estimaciones.reduce((acc, est) => acc + est.monto, 0);
+    
+    if (totalMonto === 0) return 0;
+    
+    return Math.round((montoEstimado / totalMonto) * 100);
   };
-
+  
+  const progress = calculateProgress();
   const progressColor = useMemo(() => progress < 100 ? 'bg-accent' : 'bg-green-500', [progress]);
   
-  if (isContractLoading) {
-     return (
-      <div className="space-y-8">
-        <Skeleton className="h-10 w-40" />
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-8 w-3/4 mb-2" />
-            <Skeleton className="h-5 w-1/4" />
-            <div className="pt-2">
-              <Skeleton className="h-2 w-full" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-              <Skeleton className="h-6 w-full" />
-              <Skeleton className="h-6 w-full" />
-              <Skeleton className="h-8 w-1/2" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-8 w-1/2" />
-            <Skeleton className="h-5 w-3/4" />
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   if (!contract) {
     return <div>Contrato no encontrado.</div>
   }
@@ -145,11 +77,11 @@ export function ContractDetails({ contractId }: ContractDetailsProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div className="flex items-center">
               <Calendar className="mr-3 h-5 w-5 text-muted-foreground" />
-              <span>Inicio: {getFormattedDate(contract.fechaInicio)}</span>
+              <span>Inicio: {formatDate(contract.fechaInicio)}</span>
             </div>
              <div className="flex items-center">
               <Calendar className="mr-3 h-5 w-5 text-muted-foreground" />
-              <span>Término: {getFormattedDate(contract.fechaTerminoEstimada)}</span>
+              <span>Término: {formatDate(contract.fechaTerminoEstimada)}</span>
             </div>
             <div className="flex items-center col-span-1 md:col-span-2">
               <DollarSign className="mr-3 h-5 w-5 text-muted-foreground" />
@@ -172,7 +104,7 @@ export function ContractDetails({ contractId }: ContractDetailsProps) {
             <AddEstimationModal contractId={contract.id} />
         </CardHeader>
         <CardContent>
-            <EstimationList contractId={contract.id} estimations={estimations || []} isLoading={areEstimationsLoading} />
+            <EstimationList contractId={contract.id} estimations={contract.estimaciones || []} />
         </CardContent>
       </Card>
     </div>

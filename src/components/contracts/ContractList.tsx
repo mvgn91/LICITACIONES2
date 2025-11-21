@@ -1,65 +1,107 @@
-
 'use client';
 
-import { useMemo } from 'react';
-import { collection, query, orderBy, where } from 'firebase/firestore';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import type { Contrato } from '@/lib/types';
-import { ContractCard } from './ContractCard';
-import { Skeleton } from '@/components/ui/skeleton';
+import { useMemo, useState } from 'react';
+import { useCollection } from '@/firebase/firestore/use-collection';
+import { useFirebase } from '@/firebase/provider';
+import { useUser } from '@/firebase';
+import { collection, query, where, orderBy } from 'firebase/firestore';
 import { EmptyState } from './EmptyState';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { Contrato, Estimacion } from '@/lib/types';
+import { ContractListItem } from './ContractListItem';
+import { Skeleton } from '../ui/skeleton';
+import { useMemoFirebase } from '@/firebase/hooks/use-memo-firebase';
 
-interface ContractListProps {
-  userId: string;
-}
+export function ContractList() {
+  const { firestore } = useFirebase();
+  const { user } = useUser();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Todos');
 
-export function ContractList({ userId }: ContractListProps) {
-  const firestore = useFirestore();
-
-  const contractsQuery = useMemoFirebase(
-    () => {
-      if (!firestore || !userId) return null;
-      return query(
-        collection(firestore, 'contratos'),
-        where('userId', '==', userId),
+  const contractsQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.uid) return null;
+    return query(
+        collection(firestore, 'contratos'), 
+        where('userId', '==', user.uid),
         orderBy('createdAt', 'desc')
-      );
-    },
-    [firestore, userId]
-  );
-  
-  const { data: contracts, isLoading } = useCollection<Contrato>(contractsQuery);
+    );
+  }, [firestore, user?.uid]);
+
+  const { data: contracts, isLoading } = useCollection(contractsQuery);
+
+  const filteredContracts = useMemo(() => {
+    if (!contracts) return [];
+    
+    return contracts.filter((contract) => {
+      const searchMatch =
+        contract.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        contract.cliente.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const statusMatch =
+        statusFilter === 'Todos' || contract.estado === statusFilter;
+      
+      return searchMatch && statusMatch;
+    });
+  }, [contracts, searchTerm, statusFilter]);
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex flex-col space-y-3 rounded-lg border bg-card p-6">
-                <Skeleton className="h-6 w-3/4 rounded" />
-                <Skeleton className="h-4 w-1/2 rounded" />
-                <div className="flex-grow pt-4 space-y-4">
-                  <Skeleton className="h-4 w-full rounded" />
-                  <Skeleton className="h-4 w-5/6 rounded" />
-                </div>
-                <div className="space-y-2 pt-4">
-                  <Skeleton className="h-4 w-full rounded" />
-                  <Skeleton className="h-2 w-full rounded-full" />
-                </div>
+        <div className="space-y-4">
+            <div className="flex justify-between items-center mb-6">
+                <Skeleton className="h-10 w-64" />
+                <Skeleton className="h-10 w-48" />
             </div>
-        ))}
-      </div>
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+        </div>
     );
   }
-  
+
   if (!contracts || contracts.length === 0) {
     return <EmptyState />;
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {contracts.map((contract) => (
-        <ContractCard key={contract.id} contract={contract} />
-      ))}
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-grow">
+          <Input
+            placeholder="Buscar por nombre o cliente..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full"
+          />
+        </div>
+        <div className="w-full sm:w-auto">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Filtrar por estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Todos">Todos</SelectItem>
+              <SelectItem value="Activo">Activo</SelectItem>
+              <SelectItem value="Cerrado">Cerrado</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      
+      {filteredContracts.length > 0 ? (
+        <div className="border rounded-lg">
+          <div className="divide-y divide-border">
+            {filteredContracts.map((contract) => (
+              <ContractListItem key={contract.id} contract={contract as Contrato & { estimaciones: Estimacion[]}} />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-16 text-muted-foreground">
+          <h3 className="text-xl font-semibold">No se encontraron contratos</h3>
+          <p>Intenta ajustar tu búsqueda o filtro.</p>
+        </div>
+      )}
     </div>
   );
 }
