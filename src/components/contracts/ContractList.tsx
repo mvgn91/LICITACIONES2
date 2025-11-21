@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { EmptyState } from './EmptyState';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -11,10 +12,12 @@ import { mockContratos } from '@/lib/mock-data';
 export function ContractList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
-  
-  // Use mock data instead of Firebase
-  const contracts = mockContratos;
-  const isLoading = false;
+  const [contracts, setContracts] = useState<(Contrato & { estimaciones: Omit<Estimacion, 'isCompleted'>[] })[]>(mockContratos);
+
+  const handleAddContract = useCallback((newContract: Contrato) => {
+    const newContractWithEstimations = { ...newContract, estimaciones: [] };
+    setContracts(prevContracts => [newContractWithEstimations, ...prevContracts]);
+  }, []);
 
   const filteredContracts = useMemo(() => {
     if (!contracts) return [];
@@ -31,22 +34,8 @@ export function ContractList() {
     });
   }, [contracts, searchTerm, statusFilter]);
 
-  if (isLoading) {
-    return (
-        <div className="space-y-4">
-            <div className="flex justify-between items-center mb-6">
-                <div className="h-10 w-64 bg-muted animate-pulse rounded-md" />
-                <div className="h-10 w-48 bg-muted animate-pulse rounded-md" />
-            </div>
-            <div className="h-24 w-full bg-muted animate-pulse rounded-md" />
-            <div className="h-24 w-full bg-muted animate-pulse rounded-md" />
-            <div className="h-24 w-full bg-muted animate-pulse rounded-md" />
-        </div>
-    );
-  }
-
-  if (!contracts || contracts.length === 0) {
-    return <EmptyState />;
+  if (contracts.length === 0) {
+    return <EmptyState onAddContract={handleAddContract} />;
   }
 
   return (
@@ -91,3 +80,5 @@ export function ContractList() {
     </div>
   );
 }
+
+    

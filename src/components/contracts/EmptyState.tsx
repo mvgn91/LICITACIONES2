@@ -2,8 +2,9 @@
 import Image from 'next/image';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import { AddContractModal } from './AddContractModal';
+import type { Contrato } from '@/lib/types';
 
-export function EmptyState() {
+export function EmptyState({ onAddContract }: { onAddContract: (contract: Contrato) => void }) {
   const image = PlaceHolderImages.find((img) => img.id === 'empty-state');
 
   return (
@@ -24,12 +25,14 @@ export function EmptyState() {
           Aún no hay contratos
         </h2>
         <p className="mt-2 text-muted-foreground">
-            Los contratos de muestra se mostrarán aquí. Comienza agregando datos de muestra o integra Firebase.
+            Los contratos de muestra se mostrarán aquí. Comienza agregando uno nuevo.
         </p>
         <div className="mt-6">
-          <AddContractModal />
+          <AddContractModal onAddContract={onAddContract} />
         </div>
       </div>
     </div>
   );
 }
+
+    

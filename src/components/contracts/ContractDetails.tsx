@@ -1,6 +1,7 @@
+
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import {
   Users,
   Calendar,
@@ -30,14 +31,27 @@ interface ContractDetailsProps {
 }
 
 export function ContractDetails({ contractId }: ContractDetailsProps) {
-  const isLoading = false;
+  const isLoading = false; // This will be replaced with Firebase loading state
   
+  // In a real app, you would fetch this from a global state or context
+  // that holds all contracts, instead of just the mock data.
+  const allContracts = mockContratos; 
   const contract = useMemo(
-    () => mockContratos.find(c => c.id === contractId),
-    [contractId]
+    () => allContracts.find(c => c.id === contractId),
+    [contractId, allContracts]
   );
   
-  const estimations = contract?.estimaciones || [];
+  const [estimations, setEstimations] = useState(contract?.estimaciones || []);
+
+  const handleAddEstimation = useCallback((newEstimation: Omit<Estimacion, 'id' | 'createdAt' | 'isCompleted'>) => {
+    const estimationToAdd: Estimacion = {
+      ...newEstimation,
+      id: `est-${Date.now()}`,
+      createdAt: Date.now(),
+      isCompleted: false,
+    };
+    setEstimations(prev => [...prev, estimationToAdd]);
+  }, []);
 
   const calculateProgress = () => {
     if (!contract || !estimations || estimations.length === 0) {
@@ -144,7 +158,7 @@ export function ContractDetails({ contractId }: ContractDetailsProps) {
                 Administra las tareas y sigue su progreso.
                 </CardDescription>
             </div>
-            <AddEstimationModal contractId={typedContract.id} />
+            <AddEstimationModal contractId={typedContract.id} onAddEstimation={handleAddEstimation} />
         </CardHeader>
         <CardContent>
             <EstimationList contractId={typedContract.id} estimations={estimations as Estimacion[]} />
@@ -153,3 +167,5 @@ export function ContractDetails({ contractId }: ContractDetailsProps) {
     </div>
   );
 }
+
+    
