@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useCollection } from '@/firebase/firestore/use-collection';
 import { useFirebase } from '@/firebase/provider';
-import { useUser } from '@/firebase';
+import { useUser } from '@/firebase/auth/use-user';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import { EmptyState } from './EmptyState';
 import { Input } from '@/components/ui/input';
@@ -22,9 +22,9 @@ export function ContractList() {
   const contractsQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
     return query(
-        collection(firestore, 'contratos'), 
-        where('userId', '==', user.uid),
-        orderBy('createdAt', 'desc')
+      collection(firestore, 'contratos'),
+      where('userId', '==', user.uid),
+      orderBy('createdAt', 'desc')
     );
   }, [firestore, user?.uid]);
 
