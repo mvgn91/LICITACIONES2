@@ -1,32 +1,26 @@
 
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo } from 'react';
 import type { Contrato, Estimacion } from '@/lib/types';
 import { ContractListItem } from './ContractListItem';
-import { mockContratos } from '@/lib/mock-data';
 import { EmptyState } from './EmptyState';
 
 interface ContractListProps {
+  contracts: Contrato[];
   searchTerm: string;
   statusFilter: string;
 }
 
-export function ContractList({ searchTerm, statusFilter }: ContractListProps) {
-  const [contracts, setContracts] = useState<(Contrato & { estimaciones: Omit<Estimacion, 'isCompleted'>[] })[]>(mockContratos);
-
-  const handleAddContract = useCallback((newContract: Contrato) => {
-    const newContractWithEstimations = { ...newContract, estimaciones: [] };
-    setContracts(prevContracts => [newContractWithEstimations, ...prevContracts]);
-  }, []);
-
+export function ContractList({ contracts, searchTerm, statusFilter }: ContractListProps) {
+  
   const filteredContracts = useMemo(() => {
     return contracts.filter((contract) => {
       const lowercasedSearchTerm = searchTerm.toLowerCase();
       const searchMatch =
-        contract.nombre.toLowerCase().includes(lowercasedSearchTerm) ||
-        contract.cliente.toLowerCase().includes(lowercasedSearchTerm) ||
-        contract.id.toLowerCase().includes(lowercasedSearchTerm);
+        (contract.nombre && contract.nombre.toLowerCase().includes(lowercasedSearchTerm)) ||
+        (contract.cliente && contract.cliente.toLowerCase().includes(lowercasedSearchTerm)) ||
+        (contract.id && contract.id.toString().toLowerCase().includes(lowercasedSearchTerm));
       
       const statusMatch =
         statusFilter === 'Todos' || contract.estado === statusFilter;
@@ -36,7 +30,9 @@ export function ContractList({ searchTerm, statusFilter }: ContractListProps) {
   }, [contracts, searchTerm, statusFilter]);
 
   if (contracts.length === 0) {
-    return <EmptyState onAddContract={handleAddContract} />;
+    // EmptyState ya no necesita manejar la adición de contratos aquí.
+    // Se podría pasar una función si se quisiera, pero el modal ahora vive en la página principal.
+    return <EmptyState onAddContract={() => {}} />;
   }
 
   return (
