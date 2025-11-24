@@ -15,37 +15,40 @@ export default function Page() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
 
-  useEffect(() => {
-    const fetchContracts = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch('/api/contratos');
-        if (!response.ok) {
-          throw new Error('Failed to fetch contracts');
-        }
-        const data = await response.json();
-        setContracts(data.contratos || []);
-      } catch (error) {
-        console.error(error);
-        // Aquí podrías manejar el estado de error, por ejemplo, mostrando un toast
-      } finally {
-        setIsLoading(false);
+  const fetchContracts = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const response = await fetch('/api/contratos');
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response from server:', errorText);
+        throw new Error(`Failed to fetch contracts. Status: ${response.status}`);
       }
-    };
-    fetchContracts();
+      const data = await response.json();
+      setContracts(data.contratos || []);
+    } catch (error) {
+      console.error(error);
+      // Aquí podrías manejar el estado de error, por ejemplo, mostrando un toast
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchContracts();
+  }, [fetchContracts]);
+
   const handleAddContract = useCallback((newContract: Contrato) => {
-    setContracts(prevContracts => [newContract, ...prevContracts]);
-  }, []);
+    // Re-fetch all contracts to ensure the list is completely up-to-date
+    // This is more robust than just adding the contract to the local state
+    fetchContracts();
+  }, [fetchContracts]);
 
   return (
     <div className="container mx-auto max-w-7xl p-4 md:p-8">
       <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
         <h1 className="text-3xl font-bold text-foreground font-headline">Panel de Contratos</h1>
-        <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
-           <AddContractModal onAddContract={handleAddContract} />
-        </div>
+        <AddContractModal onAddContract={handleAddContract} />
       </div>
        <div className="flex justify-between items-center mb-6 gap-4">
           <div className="flex-grow">

@@ -15,6 +15,8 @@ interface ContractListProps {
 export function ContractList({ contracts, searchTerm, statusFilter }: ContractListProps) {
   
   const filteredContracts = useMemo(() => {
+    // Si no hay contratos, no hay nada que filtrar.
+    if (!contracts) return [];
     return contracts.filter((contract) => {
       const lowercasedSearchTerm = searchTerm.toLowerCase();
       const searchMatch =
@@ -29,10 +31,10 @@ export function ContractList({ contracts, searchTerm, statusFilter }: ContractLi
     });
   }, [contracts, searchTerm, statusFilter]);
 
+  // El estado de carga se maneja en el componente padre (page.tsx)
+  // Aquí, solo nos preocupamos de si, después de cargar, hay contratos para mostrar.
   if (contracts.length === 0) {
-    // EmptyState ya no necesita manejar la adición de contratos aquí.
-    // Se podría pasar una función si se quisiera, pero el modal ahora vive en la página principal.
-    return <EmptyState onAddContract={() => {}} />;
+    return <EmptyState />;
   }
 
   return (
