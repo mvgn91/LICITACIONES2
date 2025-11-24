@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const { rows } = await sql`
       SELECT 
-        id, nombre, cliente, estado, 
+        id, nombre, cliente, estado, descripcion,
         fechainicio AS "fechaInicio",
         fechafin AS "fechaFin",
         montototal AS "montoConIVA"
