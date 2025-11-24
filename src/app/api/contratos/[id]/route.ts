@@ -7,13 +7,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
         const { rows } = await sql`
             SELECT 
                 id, nombre, cliente, estado, descripcion,
-                fecha_inicio AS "fechaInicio",  
-                fechafin AS "fechaFin", -- CORREGIDO
-                fecha_termino_estimada AS "fechaTerminoEstimada",
-                monto_base AS "montoBase",
-                monto_total AS "montoConIVA",
-                anticipo_monto AS "anticipoMonto",
-                anticipo_fecha AS "anticipoFecha"
+                fecha_inicio AS \"fechaInicio\",  
+                fechafin AS \"fechaFin\",
+                fechaterminoestimada AS \"fechaTerminoEstimada\",
+                montobase AS \"montoBase\",
+                montototal AS \"montoConIVA\",
+                anticipomonto AS \"anticipoMonto\",
+                anticipofecha AS \"anticipoFecha\"
             FROM contratos WHERE id = ${id};
         `;
         if (rows.length === 0) {
@@ -36,7 +36,6 @@ export async function PUT(request: Request, { params }: { params: { id: string }
           anticipoMonto, anticipoFecha 
         } = await request.json();
 
-        // CORREGIDO: Usar los nombres de columna correctos de la base de datos
         const result = await sql`
             UPDATE contratos SET 
               nombre = ${nombre}, 
@@ -45,11 +44,11 @@ export async function PUT(request: Request, { params }: { params: { id: string }
               estado = ${estado}, 
               fecha_inicio = ${fechaInicio}, 
               fechafin = ${fechaFin}, 
-              fecha_termino_estimada = ${fechaTerminoEstimada}, 
-              monto_base = ${montoBase}, 
-              monto_total = ${montoConIVA}, 
-              anticipo_monto = ${anticipoMonto}, 
-              anticipo_fecha = ${anticipoFecha}
+              fechaterminoestimada = ${fechaTerminoEstimada}, 
+              montobase = ${montoBase}, 
+              montototal = ${montoConIVA}, 
+              anticipomonto = ${anticipoMonto}, 
+              anticipofecha = ${anticipoFecha}
             WHERE id = ${id} RETURNING *;
         `;
 

@@ -3,19 +3,18 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    // Seleccionar la columna monto_total y devolverla con el alias montoConIVA para el frontend
     const { rows } = await sql`
       SELECT 
         id, nombre, cliente, estado, 
-        fecha_inicio AS "fechaInicio",  
-        fechafin AS "fechaFin", -- CORREGIDO
-        monto_total AS "montoConIVA"
+        fecha_inicio AS \"fechaInicio\",  
+        fechafin AS \"fechaFin\",
+        montototal AS \"montoConIVA\"
       FROM contratos ORDER BY id DESC;
     `;
     return NextResponse.json({ contratos: rows });
   } catch (error) {
     if ((error as any).message.includes('relation "contratos" does not exist')) {
-        const { rows } = await sql`SELECT id, nombre, cliente, estado, fechafin AS "fechaFin", monto_total AS "montoConIVA" FROM contratos ORDER BY id DESC;`;
+        const { rows } = await sql`SELECT id, nombre, cliente, estado, fechafin AS \"fechaFin\", montototal AS \"montoConIVA\" FROM contratos ORDER BY id DESC;`;
         return NextResponse.json({ contratos: rows });
     }
     console.error('Error fetching contracts:', error);
@@ -32,13 +31,12 @@ export async function POST(request: Request) {
           anticipoMonto, anticipoFecha 
         } = await request.json();
 
-        // CORREGIDO: Usar los nombres de columna correctos de la base de datos
         const result = await sql`
             INSERT INTO contratos (
               nombre, cliente, descripcion, estado, 
-              fecha_inicio, fechafin, fecha_termino_estimada, 
-              monto_base, monto_total, 
-              anticipo_monto, anticipo_fecha
+              fecha_inicio, fechafin, fechaterminoestimada, 
+              montobase, montototal, 
+              anticipomonto, anticipofecha
             ) VALUES (
               ${nombre}, ${cliente}, ${descripcion}, ${estado}, 
               ${fechaInicio}, ${fechaFin}, ${fechaTerminoEstimada}, 
