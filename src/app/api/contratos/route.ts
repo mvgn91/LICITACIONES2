@@ -1,1 +1,56 @@
-import { sql } from \'@vercel/postgres\';\nimport { NextResponse } from \'next/server\';\n\nexport async function GET() {\n  try {\n    // Seleccionar la columna monto_total y devolverla con el alias montoConIVA para el frontend\n    const { rows } = await sql`\n      SELECT \n        id, nombre, cliente, estado, \n        fecha_inicio AS \"fechaInicio\",  \n        fechafin AS \"fechaFin\", -- CORREGIDO\n        monto_total AS \"montoConIVA\"\n      FROM contratos ORDER BY id DESC;\n    `;\n    return NextResponse.json({ contratos: rows });\n  } catch (error) {\n    if ((error as any).message.includes(\'relation \"contratos\" does not exist\')) {\n        const { rows } = await sql`SELECT id, nombre, cliente, estado, fechafin AS \"fechaFin\", monto_total AS \"montoConIVA\" FROM contratos ORDER BY id DESC;`;\n        return NextResponse.json({ contratos: rows });\n    }\n    console.error(\'Error fetching contracts:\', error);\n    return NextResponse.json({ error: (error as Error).message }, { status: 500 });\n  }\n}\n\nexport async function POST(request: Request) {\n    try {\n        const { \n          nombre, cliente, descripcion, estado, \n          fechaInicio, fechaFin, fechaTerminoEstimada, \n          montoBase, montoConIVA, \n          anticipoMonto, anticipoFecha \n        } = await request.json();\n\n        // CORREGIDO: Usar los nombres de columna correctos de la base de datos\n        const result = await sql\`\n            INSERT INTO contratos (\n              nombre, cliente, descripcion, estado, \n              fecha_inicio, fechafin, fecha_termino_estimada, \n              monto_base, monto_total, \n              anticipo_monto, anticipo_fecha\n            ) VALUES (\n              ${nombre}, ${cliente}, ${descripcion}, ${estado}, \n              ${fechaInicio}, ${fechaFin}, ${fechaTerminoEstimada}, \n              ${montoBase}, ${montoConIVA}, \n              ${anticipoMonto}, ${anticipoFecha}\n            ) RETURNING *;\n        \`;\n\n        return NextResponse.json({ contrato: result.rows[0] }, { status: 201 });\n\n    } catch (error) {\n        console.error(\'Error creating contract:\', error);\n        return NextResponse.json({ error: (error as Error).message }, { status: 500 });\n    }\n}\n
+import { sql } from '@vercel/postgres';
+import { NextResponse } from 'next/server';
+
+export async function GET() {
+  try {
+    // Seleccionar la columna monto_total y devolverla con el alias montoConIVA para el frontend
+    const { rows } = await sql`
+      SELECT 
+        id, nombre, cliente, estado, 
+        fecha_inicio AS "fechaInicio",  
+        fechafin AS "fechaFin", -- CORREGIDO
+        monto_total AS "montoConIVA"
+      FROM contratos ORDER BY id DESC;
+    `;
+    return NextResponse.json({ contratos: rows });
+  } catch (error) {
+    if ((error as any).message.includes('relation "contratos" does not exist')) {
+        const { rows } = await sql`SELECT id, nombre, cliente, estado, fechafin AS "fechaFin", monto_total AS "montoConIVA" FROM contratos ORDER BY id DESC;`;
+        return NextResponse.json({ contratos: rows });
+    }
+    console.error('Error fetching contracts:', error);
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+  }
+}
+
+export async function POST(request: Request) {
+    try {
+        const { 
+          nombre, cliente, descripcion, estado, 
+          fechaInicio, fechaFin, fechaTerminoEstimada, 
+          montoBase, montoConIVA, 
+          anticipoMonto, anticipoFecha 
+        } = await request.json();
+
+        // CORREGIDO: Usar los nombres de columna correctos de la base de datos
+        const result = await sql`
+            INSERT INTO contratos (
+              nombre, cliente, descripcion, estado, 
+              fecha_inicio, fechafin, fecha_termino_estimada, 
+              monto_base, monto_total, 
+              anticipo_monto, anticipo_fecha
+            ) VALUES (
+              ${nombre}, ${cliente}, ${descripcion}, ${estado}, 
+              ${fechaInicio}, ${fechaFin}, ${fechaTerminoEstimada}, 
+              ${montoBase}, ${montoConIVA}, 
+              ${anticipoMonto}, ${anticipoFecha}
+            ) RETURNING *;
+        `;
+
+        return NextResponse.json({ contrato: result.rows[0] }, { status: 201 });
+
+    } catch (error) {
+        console.error('Error creating contract:', error);
+        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    }
+}
