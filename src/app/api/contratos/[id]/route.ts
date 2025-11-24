@@ -7,13 +7,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
         const { rows } = await sql`
             SELECT 
                 id, nombre, cliente, estado, descripcion,
-                fecha_inicio AS \"fechaInicio\",  
-                fechafin AS \"fechaFin\",
-                fechaterminoestimada AS \"fechaTerminoEstimada\",
-                montobase AS \"montoBase\",
-                montototal AS \"montoConIVA\",
-                anticipomonto AS \"anticipoMonto\",
-                anticipofecha AS \"anticipoFecha\"
+                fechainicio AS "fechaInicio",
+                fechafin AS "fechaFin",
+                fechaterminoestimada AS "fechaTerminoEstimada",
+                montobase AS "montoBase",
+                montototal AS "montoConIVA",
+                anticipomonto AS "anticipoMonto",
+                anticipofecha AS "anticipoFecha"
             FROM contratos WHERE id = ${id};
         `;
         if (rows.length === 0) {
@@ -42,7 +42,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
               cliente = ${cliente}, 
               descripcion = ${descripcion}, 
               estado = ${estado}, 
-              fecha_inicio = ${fechaInicio}, 
+              fechainicio = ${fechaInicio}, 
               fechafin = ${fechaFin}, 
               fechaterminoestimada = ${fechaTerminoEstimada}, 
               montobase = ${montoBase}, 

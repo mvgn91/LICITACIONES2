@@ -6,15 +6,16 @@ export async function GET() {
     const { rows } = await sql`
       SELECT 
         id, nombre, cliente, estado, 
-        fecha_inicio AS \"fechaInicio\",  
-        fechafin AS \"fechaFin\",
-        montototal AS \"montoConIVA\"
+        fechainicio AS "fechaInicio",
+        fechafin AS "fechaFin",
+        montototal AS "montoConIVA"
       FROM contratos ORDER BY id DESC;
     `;
     return NextResponse.json({ contratos: rows });
   } catch (error) {
+    // Fallback for safety, though the main query is now correct.
     if ((error as any).message.includes('relation "contratos" does not exist')) {
-        const { rows } = await sql`SELECT id, nombre, cliente, estado, fechafin AS \"fechaFin\", montototal AS \"montoConIVA\" FROM contratos ORDER BY id DESC;`;
+        const { rows } = await sql`SELECT id, nombre, cliente, estado, fechainicio AS "fechaInicio", fechafin AS "fechaFin", montototal AS "montoConIVA" FROM contratos ORDER BY id DESC;`;
         return NextResponse.json({ contratos: rows });
     }
     console.error('Error fetching contracts:', error);
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
         const result = await sql`
             INSERT INTO contratos (
               nombre, cliente, descripcion, estado, 
-              fecha_inicio, fechafin, fechaterminoestimada, 
+              fechainicio, fechafin, fechaterminoestimada, 
               montobase, montototal, 
               anticipomonto, anticipofecha
             ) VALUES (
