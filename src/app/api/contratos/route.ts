@@ -4,14 +4,21 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    // Ordenar por fecha de creación para mostrar los más nuevos primero
-    const { rows } = await sql`SELECT * FROM contratos ORDER BY "createdAt" DESC;`;
+    // Seleccionar la columna monto_total y devolverla con el alias montoConIVA para el frontend
+    const { rows } = await sql`
+      SELECT 
+        id, nombre, cliente, estado, 
+        fecha_inicio AS "fechaInicio", 
+        fecha_fin AS "fechaFin",
+        monto_total AS "montoConIVA" -- CORREGIDO
+      FROM contratos ORDER BY id DESC;
+    `;
     return NextResponse.json({ contratos: rows });
   } catch (error) {
-    // Si la tabla aún no existe, no tratarlo como un error fatal.
     if ((error as any).message.includes('relation "contratos" does not exist')) {
        return NextResponse.json({ contratos: [] });
     }
+    console.error('Error fetching contracts:', error);
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
@@ -21,7 +28,7 @@ export async function POST(request: Request) {
     const {
       nombre,
       cliente,
-      montoConIVA,
+      montoConIVA, // El frontend envía montoConIVA
       descripcion,
       fechaInicio,
       fechaTerminoEstimada,
@@ -29,47 +36,23 @@ export async function POST(request: Request) {
       anticipoFecha,
     } = await request.json();
 
-    if (!nombre || !cliente || !montoConIVA || !fechaInicio || !fechaTerminoEstimada) {
-      return NextResponse.json({ error: 'Faltan campos requeridos.' }, { status: 400 });
-    }
-
-    const montoBase = Number(montoConIVA) / 1.16;
+    const montoBase = montoConIVA / 1.16;
+    const estado = 'Activo';
 
     const result = await sql`
-      INSERT INTO contratos (
-        nombre,
-        cliente,
-        "montoConIVA",
-        descripcion,
-        "montoBase",
-        "montoSinIVA",
-        "fechaInicio",
-        "fechaTerminoEstimada",
-        "anticipoMonto",
-        "anticipoFecha",
-        estado,
-        "createdAt",
-        "userId"
-      )
-      VALUES (
-        ${nombre},
-        ${cliente},
-        ${Number(montoConIVA)},
-        ${descripcion},
-        ${montoBase},
-        ${montoBase},
-        ${new Date(fechaInicio).toISOString()},
-        ${new Date(fechaTerminoEstimada).toISOString()},
-        ${Number(anticipoMonto)},
-        ${new Date(anticipoFecha).toISOString()},
-        'Activo',
-        NOW(),
-        'api-user'
-      )
-      RETURNING *;
+      INSERT INTO contratos 
+        (nombre, cliente, monto_base, monto_total, descripcion, fecha_inicio, fecha_termino_estimada, anticipo_monto, anticipo_fecha, estado)
+      VALUES 
+        (${nombre}, ${cliente}, ${montoBase}, ${montoConIVA}, ${descripcion}, ${fechaInicio}, ${fechaTerminoEstimada}, ${anticipoMonto}, ${anticipoFecha}, ${estado})
+      RETURNING 
+        id, nombre, cliente, estado, 
+        fecha_inicio AS "fechaInicio", 
+        fecha_fin AS "fechaFin",
+        monto_total AS "montoConIVA"; -- CORREGIDO
     `;
 
     return NextResponse.json({ contrato: result.rows[0] }, { status: 201 });
+
   } catch (error) {
     console.error('Error creating contract:', error);
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
