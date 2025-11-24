@@ -1,13 +1,18 @@
+
 'use client';
 import Link from 'next/link';
 import { Progress } from '@/components/ui/progress';
 import {
   Users,
   ChevronRight,
+  FileText,
 } from 'lucide-react';
 import type { Contrato, Estimacion } from '@/lib/types';
-import { Badge } from '../ui/badge';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { useMemo } from 'react';
 
 interface ContractListItemProps {
   contract: Contrato & { estimaciones?: Omit<Estimacion, 'isCompleted'>[] };
@@ -15,50 +20,56 @@ interface ContractListItemProps {
 
 export function ContractListItem({ contract }: ContractListItemProps) {
 
-  const calculateProgress = () => {
-    if (!contract.estimaciones || contract.estimaciones.length === 0 || contract.montoConIVA === 0) {
-      return 0;
-    }
-    const montoEstimado = contract.estimaciones.reduce((acc, est) => acc + (est.monto || 0), 0);
-    return Math.round((montoEstimado / contract.montoConIVA) * 100);
-  };
+  const progress = useMemo(() => {
+    const anticipo = contract.anticipoMonto || 0;
+    if (contract.montoConIVA === 0) return 0;
+    const montoEstimado = contract.estimaciones?.reduce((acc, est) => acc + (est.monto || 0), 0) || 0;
+    const totalPagado = anticipo + montoEstimado;
+    return Math.round((totalPagado / contract.montoConIVA) * 100);
+  }, [contract]);
 
-  const progress = calculateProgress();
+  const progressColor = useMemo(() => progress >= 100 ? 'bg-green-500' : 'bg-accent', [progress]);
 
   return (
-    <Link href={`/contracts/${contract.id}`} className="block transition-colors duration-200 hover:bg-muted/50">
-      <div className="p-4 flex items-center gap-4">
-        <div className="flex-grow grid grid-cols-12 gap-4 items-center">
-          
-          <div className="col-span-12 md:col-span-5">
-            <h3 className="font-headline text-base font-semibold truncate text-primary">{contract.nombre}</h3>
-            <p className="flex items-center text-sm text-muted-foreground">
-              <Users className="mr-2 h-4 w-4 flex-shrink-0" />
-              <span className="truncate">{contract.cliente}</span>
-            </p>
-          </div>
-
-          <div className="col-span-6 md:col-span-2 flex items-center">
-             <Badge variant={contract.estado === 'Activo' ? 'default' : 'secondary'} className={cn('w-fit', contract.estado === 'Activo' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800')}>
+    <Card className="flex flex-col h-full hover:shadow-lg transition-shadow duration-300">
+      <CardHeader>
+        <div className="flex justify-between items-start">
+          <CardDescription className="font-institutional flex items-center text-xs">
+            <FileText className="mr-2 h-4 w-4" />
+            Contrato No. {contract.id}
+          </CardDescription>
+          <Badge variant={contract.estado === 'Activo' ? 'default' : 'secondary'} className={cn(
+              'text-xs',
+              contract.estado === 'Activo' ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200'
+          )}>
               {contract.estado}
-             </Badge>
-          </div>
-          
-          <div className="col-span-6 md:col-span-5 w-full">
-            <div className="flex w-full justify-between text-xs text-muted-foreground mb-1">
-              <span>Progreso</span>
-              <span className="font-semibold text-foreground">{progress}%</span>
-            </div>
-            <Progress value={progress} className="h-2" />
-          </div>
-
+          </Badge>
         </div>
-
-        <div className="ml-auto pl-4">
-          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+        <CardTitle className="font-headline text-2xl pt-1 truncate text-primary">{contract.nombre}</CardTitle>
+        <CardDescription className="flex items-center text-sm pt-1">
+          <Users className="mr-2 h-4 w-4 flex-shrink-0" />
+          <span className="truncate">{contract.cliente}</span>
+        </CardDescription>
+      </CardHeader>
+      
+      <CardContent className="flex-grow">
+        <div className="w-full">
+          <div className="flex w-full justify-between text-xs text-muted-foreground mb-1">
+            <span>Progreso de Pago</span>
+            <span className="font-semibold text-foreground">{progress}%</span>
+          </div>
+          <Progress value={progress} className={`h-2 [&>div]:${progressColor}`} />
         </div>
+      </CardContent>
 
-      </div>
-    </Link>
+      <CardFooter className="bg-muted/50 p-4 justify-end">
+        <Button asChild variant="ghost" size="sm">
+            <Link href={`/contracts/${contract.id}`}>
+                Ver Detalles
+                <ChevronRight className="ml-2 h-4 w-4" />
+            </Link>
+        </Button>
+      </CardFooter>
+    </Card>
   );
 }

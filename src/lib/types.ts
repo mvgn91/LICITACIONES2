@@ -1,33 +1,51 @@
+
+export type Estado = 'Activo' | 'Cerrado' | 'Terminado';
+
 export interface Contrato {
   id: string;
   nombre: string;
   cliente: string;
-  montoBase: number;
-  montoSinIVA: number;
   montoConIVA: number;
-  anticipoMonto?: number;
-  anticipoFecha?: number; // timestamp
+  montoSinIVA: number;
+  montoBase: number;
+  fechaInicio: number;
+  fechaTerminoEstimada: number;
+  estado: Estado;
   descripcion: string;
-  fechaInicio: number; // timestamp
-  fechaTerminoEstimada: number; // timestamp
-  observacionesGenerales?: string;
-  estado: 'Activo' | 'Cerrado';
-  docConstructoraOK?: boolean;
-  docConstructoraObs?: string;
-  docControlOK?: boolean;
-  docControlObs?: string;
-  cierreObservaciones?: string;
-  createdAt: number; // timestamp
   userId: string;
+  createdAt: number;
+
+  // Fases y Aprobaciones
+  faseConstructoraAprobada?: boolean;
+  faseControlPresupuestalAprobada?: boolean;
+  faseConstructoraEvidencia?: string[]; // Rutas a archivos
+  faseControlPresupuestalEvidencia?: string[]; // Rutas a archivos
+
+  // Pagos y Estimaciones
+  estimaciones?: Estimacion[];
+  anticipoMonto?: number;
+  anticipoFecha?: number;
+  anticipoEvidencia?: string[];
 }
 
 export interface Estimacion {
-  id: string;
-  tipo: 'Parcial' | 'Total';
-  monto: number;
-  observaciones?: string;
-  ordenCompraUrl?: string;
-  createdAt: number; // timestamp
-  evidencias?: string[];
-  isCompleted: boolean;
+    id: string;
+    tipo: 'Parcial' | 'Liquidación';
+    monto: number;
+    observaciones?: string;
+    createdAt: number;
+    evidencias?: string[]; // Rutas a archivos de evidencia
+    ordenCompraUrl?: string;
+    ocRecibida?: boolean;
+}
+
+export interface Transaction {
+    id: string;
+    type: 'Anticipo' | 'Estimación';
+    description: string;
+    date: number;
+    amount: number;
+    evidence?: string[];
+    ordenCompraUrl?: string;
+    ocRecibida?: boolean;
 }

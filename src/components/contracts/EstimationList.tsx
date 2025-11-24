@@ -3,82 +3,98 @@
 
 import { useState } from 'react';
 import type { Estimacion } from '@/lib/types';
-import { useToast } from '@/hooks/use-toast';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Card } from '@/components/ui/card';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { Badge } from '../ui/badge';
-import { cn } from '@/lib/utils';
-import { FileDown, Image as ImageIcon } from 'lucide-react';
-import Link from 'next/link';
+import { Edit, Trash2 } from 'lucide-react';
+import { Button } from '../ui/button';
+import { EditEstimationModal } from './EditEstimationModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface EstimationListProps {
-  contractId: string;
   estimations: Estimacion[];
+  onUpdateEstimation: (updatedEstimation: Estimacion) => void;
+  onDeleteEstimation: (estimationId: string) => void;
+  isFinalizado: boolean;
 }
 
-export function EstimationList({ contractId, estimations: initialEstimations }: EstimationListProps) {
-  const { toast } = useToast();
-  const [estimations, setEstimations] = useState(initialEstimations.map(e => ({...e, isCompleted: false})));
-
-  const handleStatusChange = (estimationId: string, isCompleted: boolean) => {
-    setEstimations(currentEstimations =>
-      currentEstimations.map(e =>
-        e.id === estimationId ? { ...e, isCompleted } : e
-      )
-    );
-    toast({
-      title: 'Estado Actualizado (Simulado)',
-      description: 'El estado de la estimación ha sido actualizado en la vista local.',
-    });
-  };
+export function EstimationList({ estimations, onUpdateEstimation, onDeleteEstimation, isFinalizado }: EstimationListProps) {
+  const [editingEstimation, setEditingEstimation] = useState<Estimacion | null>(null);
 
   if (!estimations || estimations.length === 0) {
     return (
-      <div className="text-center text-muted-foreground py-10">
+      <div className="text-center text-muted-foreground py-10 border rounded-lg bg-background">
         Aún no se han agregado estimaciones a este contrato.
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {estimations.map((estimation) => {
-        const evidenceUrl = estimation.evidencias && estimation.evidencias[0];
-        const isImage = evidenceUrl?.match(/\.(jpeg|jpg|gif|png)$/) != null;
-        return (
-            <Card
-            key={estimation.id}
-            className={cn(
-                'flex items-center p-4 transition-colors duration-200',
-                estimation.isCompleted ? 'bg-muted/50' : 'bg-card'
-            )}
-            >
-            <Checkbox
-                id={`estimation-${estimation.id}`}
-                checked={estimation.isCompleted}
-                onCheckedChange={(checked) => handleStatusChange(estimation.id, !!checked)}
-                className="mr-4 h-5 w-5"
-                aria-label={`Marcar estimación ${estimation.observaciones} como completada`}
-            />
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2 items-center">
-                <label
-                    htmlFor={`estimation-${estimation.id}`}
-                    className={cn('font-medium leading-none cursor-pointer', estimation.isCompleted && 'line-through text-muted-foreground')}
-                >
-                    {estimation.observaciones}
-                </label>
-                <Badge variant="outline" className="w-fit justify-self-start md:justify-self-center">{formatCurrency(estimation.monto)}</Badge>
+    <div className="space-y-3">
+      {estimations.map((estimation) => (
+          <Card key={estimation.id} className="p-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between w-full">
+              <div className="flex-grow mb-3 sm:mb-0">
+                <p className="font-medium leading-tight">{estimation.observaciones}</p>
+                <div className="flex items-center flex-wrap gap-x-3 gap-y-1 text-sm mt-1">
+                    <Badge variant={estimation.tipo === 'Liquidación' ? 'destructive' : 'secondary'}>{estimation.tipo}</Badge>
+                    <p className="font-semibold text-muted-foreground">{formatCurrency(estimation.monto)}</p>
+                    <p className="text-muted-foreground hidden md:block">{formatDate(estimation.createdAt)}</p>
+                    {estimation.ocRecibida && (
+                        <Badge variant="outline" className="text-green-600 border-green-600/50">O.C. Recibida</Badge>
+                    )}
+                </div>
+              </div>
 
-                {evidenceUrl && (
-                     <Link href={evidenceUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-accent hover:underline flex items-center justify-self-start md:justify-self-end">
-                        {isImage ? <ImageIcon className="mr-2 h-4 w-4" /> : <FileDown className="mr-2 h-4 w-4" />}
-                        Ver Evidencia
-                    </Link>
-                )}
+              <div className="flex items-center space-x-1 self-end sm:self-center flex-shrink-0">
+                <Button variant="ghost" size="icon-sm" onClick={() => setEditingEstimation(estimation)} disabled={isFinalizado}>
+                  <Edit className="h-4 w-4 text-blue-500" />
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon-sm" disabled={isFinalizado}>
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Está seguro de eliminar?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta acción es permanente. La estimación será eliminada y el presupuesto del contrato se recalculará.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => onDeleteEstimation(estimation.id)}>
+                        Eliminar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
-            </Card>
-        )}
+          </Card>
+      ))}
+      {editingEstimation && (
+        <EditEstimationModal
+          estimation={editingEstimation}
+          isOpen={!!editingEstimation}
+          onClose={() => setEditingEstimation(null)}
+          onUpdate={(updated) => {
+            onUpdateEstimation(updated);
+            setEditingEstimation(null);
+          }}
+        />
       )}
     </div>
   );
