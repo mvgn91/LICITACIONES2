@@ -13,11 +13,6 @@ export async function GET() {
     `;
     return NextResponse.json({ contratos: rows });
   } catch (error) {
-    // Fallback for safety, though the main query is now correct.
-    if ((error as any).message.includes('relation "contratos" does not exist')) {
-        const { rows } = await sql`SELECT id, nombre, cliente, estado, fechainicio AS "fechaInicio", fechafin AS "fechaFin", montototal AS "montoConIVA" FROM contratos ORDER BY id DESC;`;
-        return NextResponse.json({ contratos: rows });
-    }
     console.error('Error fetching contracts:', error);
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
