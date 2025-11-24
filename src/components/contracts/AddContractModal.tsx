@@ -55,6 +55,7 @@ type ContractFormData = z.infer<typeof contractSchema>;
 
 export function AddContractModal({ onAddContract }: { onAddContract: (contract: Contrato) => void }) {
   const [open, setOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<ContractFormData>({
@@ -68,31 +69,42 @@ export function AddContractModal({ onAddContract }: { onAddContract: (contract: 
     },
   });
 
-  const onSubmit = (data: ContractFormData) => {
-    const newContract: Contrato = {
-      id: `contrato-${Date.now()}`,
-      nombre: data.nombre,
-      cliente: data.cliente,
-      montoConIVA: data.montoConIVA,
-      descripcion: data.descripcion,
-      montoBase: data.montoConIVA / 1.16,
-      montoSinIVA: data.montoConIVA / 1.16,
-      fechaInicio: data.fechaInicio.getTime(),
-      fechaTerminoEstimada: data.fechaTerminoEstimada.getTime(),
-      anticipoMonto: data.anticipoMonto,
-      anticipoFecha: data.anticipoFecha.getTime(),
-      anticipoEvidencia: data.anticipoEvidencia?.[0] ? [data.anticipoEvidencia[0].name] : [],
-      estado: 'Activo',
-      createdAt: Date.now(),
-      userId: 'user-local',
-    };
-    onAddContract(newContract);
-    toast({
-      title: 'Contrato Agregado (Simulado)',
-      description: `El contrato "${data.nombre}" ha sido agregado a la lista local.`,
-    });
-    setOpen(false);
-    form.reset();
+  const onSubmit = async (data: ContractFormData) => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch('/api/contratos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al crear el contrato.');
+      }
+
+      const { contrato: newContract } = await response.json();
+      
+      onAddContract(newContract);
+      toast({
+        title: 'Contrato Creado Exitosamente',
+        description: `El contrato "${newContract.nombre}" ha sido guardado en la base de datos.`,
+        variant: 'success'
+      });
+      setOpen(false);
+      form.reset();
+
+    } catch (error) {
+      toast({
+        title: 'Error al Guardar',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -137,7 +149,9 @@ export function AddContractModal({ onAddContract }: { onAddContract: (contract: 
             
             <DialogFooter className='pt-4'>
                 <DialogClose asChild><Button type="button" variant="secondary">Cancelar</Button></DialogClose>
-                <Button type="submit" className="bg-accent hover:bg-accent/90 text-accent-foreground">Guardar Contrato</Button>
+                <Button type="submit" disabled={isSubmitting} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                  {isSubmitting ? 'Guardando...' : 'Guardar Contrato'}
+                </Button>
             </DialogFooter>
           </form>
         </Form>

@@ -1,28 +1,77 @@
+
 import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
-    const { rows } = await sql`SELECT * FROM contratos;`;
+    // Ordenar por fecha de creación para mostrar los más nuevos primero
+    const { rows } = await sql`SELECT * FROM contratos ORDER BY "createdAt" DESC;`;
     return NextResponse.json({ contratos: rows });
   } catch (error) {
-    return NextResponse.json({ error }, { status: 500 });
+    // Si la tabla aún no existe, no tratarlo como un error fatal.
+    if ((error as any).message.includes('relation "contratos" does not exist')) {
+       return NextResponse.json({ contratos: [] });
+    }
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
 
 export async function POST(request: Request) {
   try {
-    const { nombre, cliente, montoTotal } = await request.json();
-    if (!nombre || !cliente || !montoTotal) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const {
+      nombre,
+      cliente,
+      montoConIVA,
+      descripcion,
+      fechaInicio,
+      fechaTerminoEstimada,
+      anticipoMonto,
+      anticipoFecha,
+    } = await request.json();
+
+    if (!nombre || !cliente || !montoConIVA || !fechaInicio || !fechaTerminoEstimada) {
+      return NextResponse.json({ error: 'Faltan campos requeridos.' }, { status: 400 });
     }
-    await sql`
-      INSERT INTO contratos (nombre, cliente, montoTotal, estado)
-      VALUES (${nombre}, ${cliente}, ${montoTotal}, 'Activo');
+
+    const montoBase = Number(montoConIVA) / 1.16;
+
+    const result = await sql`
+      INSERT INTO contratos (
+        nombre,
+        cliente,
+        "montoConIVA",
+        descripcion,
+        "montoBase",
+        "montoSinIVA",
+        "fechaInicio",
+        "fechaTerminoEstimada",
+        "anticipoMonto",
+        "anticipoFecha",
+        estado,
+        "createdAt",
+        "userId"
+      )
+      VALUES (
+        ${nombre},
+        ${cliente},
+        ${Number(montoConIVA)},
+        ${descripcion},
+        ${montoBase},
+        ${montoBase},
+        ${new Date(fechaInicio).toISOString()},
+        ${new Date(fechaTerminoEstimada).toISOString()},
+        ${Number(anticipoMonto)},
+        ${new Date(anticipoFecha).toISOString()},
+        'Activo',
+        NOW(),
+        'api-user'
+      )
+      RETURNING *;
     `;
-    const { rows } = await sql`SELECT * FROM contratos ORDER BY id DESC LIMIT 1;`;
-    return NextResponse.json({ contrato: rows[0] });
+
+    return NextResponse.json({ contrato: result.rows[0] }, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error }, { status: 500 });
+    console.error('Error creating contract:', error);
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
