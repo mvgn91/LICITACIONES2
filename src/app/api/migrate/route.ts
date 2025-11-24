@@ -1,30 +1,35 @@
-
-import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
+import { sql } from '@vercel/postgres';
 
 export async function GET() {
-  let message = '';
   try {
-    await sql`ALTER TABLE contratos ADD COLUMN fecha_inicio DATE;`;
-    message += 'Column "fecha_inicio" added successfully. ';
-  } catch (error) {
-    if ((error as Error).message.includes('column "fecha_inicio" of relation "contratos" already exists')) {
-      message += 'Column "fecha_inicio" already exists, skipping. ';
-    } else {
-      return NextResponse.json({ error: `Error adding column "fecha_inicio": ${(error as Error).message}` }, { status: 500 });
+    // Try adding fecha_inicio
+    try {
+      await sql`ALTER TABLE contratos ADD COLUMN fecha_inicio DATE;`;
+      console.log('Column "fecha_inicio" added successfully.');
+    } catch (error) {
+      if ((error as Error).message.includes('column "fecha_inicio" of relation "contratos" already exists')) {
+        console.log('Column "fecha_inicio" already exists, skipping.');
+      } else {
+        throw error; // Re-throw other errors
+      }
     }
-  }
 
-  try {
-    await sql`ALTER TABLE contratos ADD COLUMN monto_base NUMERIC;`;
-    message += 'Column "monto_base" added successfully.';
-  } catch (error) {
-    if ((error as Error).message.includes('column "monto_base" of relation "contratos" already exists')) {
-      message += 'Column "monto_base" already exists, skipping.';
-    } else {
-      return NextResponse.json({ error: `Error adding column "monto_base": ${(error as Error).message}` }, { status: 500 });
+    // Try adding monto_base
+    try {
+      await sql`ALTER TABLE contratos ADD COLUMN monto_base NUMERIC;`;
+      console.log('Column "monto_base" added successfully.');
+    } catch (error) {
+      if ((error as Error).message.includes('column "monto_base" of relation "contratos" already exists')) {
+        console.log('Column "monto_base" already exists, skipping.');
+      } else {
+        throw error; // Re-throw other errors
+      }
     }
-  }
 
-  return NextResponse.json({ message });
+    return NextResponse.json({ message: 'Migration completed successfully.' }, { status: 200 });
+  } catch (error) {
+    console.error('Migration failed:', error);
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+  }
 }
