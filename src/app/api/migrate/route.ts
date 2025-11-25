@@ -1,9 +1,12 @@
+
 import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
+import { createContractsTable } from '../contratos/migration';
 
 export async function GET() {
   try {
-    // Try adding fecha_inicio
+    await createContractsTable();
+    
     try {
       await sql`ALTER TABLE contratos ADD COLUMN fecha_inicio DATE;`;
       console.log('Column "fecha_inicio" added successfully.');
@@ -11,11 +14,10 @@ export async function GET() {
       if ((error as Error).message.includes('column "fecha_inicio" of relation "contratos" already exists')) {
         console.log('Column "fecha_inicio" already exists, skipping.');
       } else {
-        throw error; // Re-throw other errors
+        throw error;
       }
     }
 
-    // Try adding monto_base
     try {
       await sql`ALTER TABLE contratos ADD COLUMN monto_base NUMERIC;`;
       console.log('Column "monto_base" added successfully.');
@@ -23,7 +25,7 @@ export async function GET() {
       if ((error as Error).message.includes('column "monto_base" of relation "contratos" already exists')) {
         console.log('Column "monto_base" already exists, skipping.');
       } else {
-        throw error; // Re-throw other errors
+        throw error;
       }
     }
 

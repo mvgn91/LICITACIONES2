@@ -26,7 +26,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import type { Contrato } from '@/lib/types';
 import { Calendar } from '@/components/ui/calendar';
@@ -43,7 +42,6 @@ const contractSchema = z.object({
   nombre: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
   cliente: z.string().min(3, 'El cliente debe tener al menos 3 caracteres.'),
   montoConIVA: z.coerce.number().positive('El monto total debe ser un número positivo.'),
-  descripcion: z.string().optional(),
   fechaInicio: z.date({ required_error: 'La fecha de inicio es requerida.' }),
   fechaTerminoEstimada: z.date({ required_error: 'La fecha de término es requerida.' }),
   anticipoMonto: z.coerce.number().positive('El monto del anticipo debe ser un número positivo.'),
@@ -64,7 +62,6 @@ export function AddContractModal({ onAddContract }: { onAddContract: (contract: 
       nombre: '',
       cliente: '',
       montoConIVA: 0,
-      descripcion: '',
       anticipoMonto: 0,
     },
   });
@@ -134,7 +131,6 @@ export function AddContractModal({ onAddContract }: { onAddContract: (contract: 
                         <FormField control={form.control} name="fechaInicio" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha de Inicio</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP')) : (<span>Seleccionar fecha</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
                         <FormField control={form.control} name="fechaTerminoEstimada" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha de Término</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP')) : (<span>Seleccionar fecha</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
                     </div>
-                    <FormField control={form.control} name="descripcion" render={({ field }) => (<FormItem><FormLabel>Descripción</FormLabel><FormControl><Textarea placeholder="Descripción breve del contrato..." className="resize-none" {...field} rows={5} /></FormControl><FormMessage /></FormItem>)} />
                 </div>
                 {/* Columna Derecha */}
                 <div className='space-y-4'>

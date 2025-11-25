@@ -11,7 +11,6 @@ export interface Contrato {
   fechaInicio: number;
   fechaTerminoEstimada: number;
   estado: Estado;
-  descripcion: string;
   userId: string;
   createdAt: number;
 

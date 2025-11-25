@@ -6,7 +6,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         const { id } = params;
         const { rows } = await sql`
             SELECT 
-                id, nombre, cliente, estado, descripcion,
+                id, nombre, cliente, estado,
                 fechainicio AS "fechaInicio",
                 fechafin AS "fechaFin",
                 fechaterminoestimada AS "fechaTerminoEstimada",
@@ -30,7 +30,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
     try {
         const { id } = params;
         const { 
-          nombre, cliente, descripcion, estado, 
+          nombre, cliente, estado, 
           fechaInicio, fechaFin, fechaTerminoEstimada, 
           montoBase, montoConIVA, 
           anticipoMonto, anticipoFecha 
@@ -40,7 +40,6 @@ export async function PUT(request: Request, { params }: { params: { id: string }
             UPDATE contratos SET 
               nombre = ${nombre}, 
               cliente = ${cliente}, 
-              descripcion = ${descripcion}, 
               estado = ${estado}, 
               fechainicio = ${fechaInicio}, 
               fechafin = ${fechaFin}, 

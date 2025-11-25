@@ -73,7 +73,6 @@ export const mockContratos: Contrato[] = [
     estimaciones: mockEstimacionesContrato1,
     montoBase: 103448.28,
     montoSinIVA: 103448.28,
-    descripcion: 'Construcción completa de residencia unifamiliar.',
     createdAt: new Date('2024-05-01').getTime(),
     userId: 'user-1',
     anticipoMonto: 24000,
@@ -92,7 +91,6 @@ export const mockContratos: Contrato[] = [
     estimaciones: mockEstimacionesContrato2,
     montoBase: 646551.72,
     montoSinIVA: 646551.72,
-    descripcion: 'Acondicionamiento de 5 pisos de oficinas.',
     createdAt: new Date('2024-06-15').getTime(),
     userId: 'user-1',
     anticipoMonto: 150000,
@@ -111,7 +109,6 @@ export const mockContratos: Contrato[] = [
     estimaciones: [], // Se asume liquidado con el anticipo para simplificar
     montoBase: 43103.45,
     montoSinIVA: 43103.45,
-    descripcion: 'Remodelación de fachada e interiores de tienda ancla.',
     createdAt: new Date('2024-02-20').getTime(),
     userId: 'user-1',
     anticipoMonto: 50000, // Anticipo liquida el total

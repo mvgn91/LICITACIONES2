@@ -5,7 +5,7 @@ export async function GET() {
   try {
     const { rows } = await sql`
       SELECT 
-        id, nombre, cliente, estado, descripcion,
+        id, nombre, cliente, estado, 
         fechainicio AS "fechaInicio",
         fechafin AS "fechaFin",
         montototal AS "montoConIVA"
@@ -21,7 +21,7 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const { 
-          nombre, cliente, descripcion, estado, 
+          nombre, cliente, estado, 
           fechaInicio, fechaFin, fechaTerminoEstimada, 
           montoBase, montoConIVA, 
           anticipoMonto, anticipoFecha 
@@ -29,12 +29,12 @@ export async function POST(request: Request) {
 
         const result = await sql`
             INSERT INTO contratos (
-              nombre, cliente, descripcion, estado, 
+              nombre, cliente, estado, 
               fechainicio, fechafin, fechaterminoestimada, 
               montobase, montototal, 
               anticipomonto, anticipofecha
             ) VALUES (
-              ${nombre}, ${cliente}, ${descripcion}, ${estado}, 
+              ${nombre}, ${cliente}, ${estado}, 
               ${fechaInicio}, ${fechaFin}, ${fechaTerminoEstimada}, 
               ${montoBase}, ${montoConIVA}, 
               ${anticipoMonto}, ${anticipoFecha}
