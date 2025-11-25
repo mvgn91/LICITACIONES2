@@ -1,3 +1,4 @@
+
 import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
 
@@ -7,13 +8,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
         const { rows } = await sql`
             SELECT 
                 id, nombre, cliente, estado,
-                fechainicio AS "fechaInicio",
-                fechafin AS "fechaFin",
-                fechaterminoestimada AS "fechaTerminoEstimada",
-                montobase AS "montoBase",
-                montototal AS "montoConIVA",
-                anticipomonto AS "anticipoMonto",
-                anticipofecha AS "anticipoFecha"
+                fecha_inicio AS "fechaInicio",
+                fecha_fin AS "fechaFin",
+                fecha_termino_estimada AS "fechaTerminoEstimada",
+                monto_base AS "montoBase",
+                monto_total AS "montoConIVA",
+                anticipo_monto AS "anticipoMonto",
+                anticipo_fecha AS "anticipoFecha"
             FROM contratos WHERE id = ${id};
         `;
         if (rows.length === 0) {
@@ -41,13 +42,13 @@ export async function PUT(request: Request, { params }: { params: { id: string }
               nombre = ${nombre}, 
               cliente = ${cliente}, 
               estado = ${estado}, 
-              fechainicio = ${fechaInicio}, 
-              fechafin = ${fechaFin}, 
-              fechaterminoestimada = ${fechaTerminoEstimada}, 
-              montobase = ${montoBase}, 
-              montototal = ${montoConIVA}, 
-              anticipomonto = ${anticipoMonto}, 
-              anticipofecha = ${anticipoFecha}
+              fecha_inicio = ${fechaInicio}, 
+              fecha_fin = ${fechaFin}, 
+              fecha_termino_estimada = ${fechaTerminoEstimada}, 
+              monto_base = ${montoBase}, 
+              monto_total = ${montoConIVA}, 
+              anticipo_monto = ${anticipoMonto}, 
+              anticipo_fecha = ${anticipoFecha}
             WHERE id = ${id} RETURNING *;
         `;
 
@@ -55,7 +56,18 @@ export async function PUT(request: Request, { params }: { params: { id: string }
             return NextResponse.json({ error: 'Contract not found' }, { status: 404 });
         }
 
-        return NextResponse.json({ contrato: result.rows[0] });
+        const updatedContract = {
+            ...result.rows[0],
+            fechaInicio: result.rows[0].fecha_inicio,
+            fechaFin: result.rows[0].fecha_fin,
+            fechaTerminoEstimada: result.rows[0].fecha_termino_estimada,
+            montoBase: result.rows[0].monto_base,
+            montoConIVA: result.rows[0].monto_total,
+            anticipoMonto: result.rows[0].anticipo_monto,
+            anticipoFecha: result.rows[0].anticipo_fecha
+        }
+
+        return NextResponse.json({ contrato: updatedContract });
 
     } catch (error) {
         console.error('Error updating contract:', error);
