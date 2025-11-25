@@ -75,10 +75,10 @@ export async function GET() {
       `;
     }
 
-    return NextResponse.json({ message: 'Tabla de contratos creada y datos de ejemplo insertados.' }, { status: 200 });
+    return NextResponse.json({ message: 'Base de datos reiniciada. Tabla de contratos creada y datos de ejemplo insertados.' }, { status: 200 });
 
   } catch (error) {
-    console.error('Migration failed:', error);
+    console.error('Database setup failed:', error);
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }

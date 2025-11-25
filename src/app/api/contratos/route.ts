@@ -4,6 +4,15 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
     try {
+        // Sanity check para asegurar que la tabla existe
+        // Esto es temporal, pero te dará un error más claro si la tabla sigue sin crearse
+        try {
+            await sql`SELECT 1 FROM contratos LIMIT 1;`;
+        } catch (tableError) {
+            console.error("La tabla 'contratos' no existe.", tableError);
+            return NextResponse.json({ error: "La tabla 'contratos' no existe. Ejecuta /api/setup para crearla." }, { status: 500 });
+        }
+
         const { rows } = await sql`
             SELECT 
                 id, nombre, cliente, estado,
@@ -13,7 +22,8 @@ export async function GET() {
                 monto_base AS "montoBase",
                 monto_total AS "montoConIVA",
                 anticipo_monto AS "anticipoMonto",
-                anticipo_fecha AS "anticipoFecha"
+                anticipo_fecha AS "anticipoFecha",
+                createdAt
             FROM contratos ORDER BY createdAt DESC;
         `;
         return NextResponse.json({ contratos: rows });
