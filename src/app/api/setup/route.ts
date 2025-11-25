@@ -43,7 +43,8 @@ const contratosDeEjemplo = [
 
 export async function GET() {
   try {
-    await sql`DROP TABLE IF EXISTS contratos;`;
+    // Usamos CASCADE para eliminar la tabla y todas sus dependencias (ej. secuencias)
+    await sql`DROP TABLE IF EXISTS contratos CASCADE;`;
 
     await sql`
         CREATE TABLE contratos (
