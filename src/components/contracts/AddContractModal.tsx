@@ -26,6 +26,13 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import type { Contrato } from '@/lib/types';
 import { Calendar } from '@/components/ui/calendar';
@@ -41,6 +48,7 @@ import { format } from 'date-fns';
 const contractSchema = z.object({
   nombre: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
   cliente: z.string().min(3, 'El cliente debe tener al menos 3 caracteres.'),
+  estado: z.enum(['Activo', 'Pendiente', 'Completado'], { required_error: 'El estado es requerido.' }),
   montoConIVA: z.coerce.number().positive('El monto total debe ser un número positivo.'),
   fechaInicio: z.date({ required_error: 'La fecha de inicio es requerida.' }),
   fechaTerminoEstimada: z.date({ required_error: 'La fecha de término es requerida.' }),
@@ -61,6 +69,7 @@ export function AddContractModal({ onAddContract }: { onAddContract: (contract: 
     defaultValues: {
       nombre: '',
       cliente: '',
+      estado: 'Pendiente',
       montoConIVA: 0,
       anticipoMonto: 0,
     },
@@ -126,6 +135,28 @@ export function AddContractModal({ onAddContract }: { onAddContract: (contract: 
                 <div className='space-y-4'>
                     <FormField control={form.control} name="nombre" render={({ field }) => (<FormItem><FormLabel>Nombre del Contrato</FormLabel><FormControl><Input placeholder="Ej. Residencia Los Robles" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="cliente" render={({ field }) => (<FormItem><FormLabel>Cliente</FormLabel><FormControl><Input placeholder="Ej. Familia González" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField
+                      control={form.control}
+                      name="estado"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Estado del Contrato</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccione un estado" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Pendiente">Pendiente</SelectItem>
+                              <SelectItem value="Activo">Activo</SelectItem>
+                              <SelectItem value="Completado">Completado</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <FormField control={form.control} name="montoConIVA" render={({ field }) => (<FormItem><FormLabel>Monto Total (con IVA)</FormLabel><FormControl><Input type="number" placeholder="120000" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="fechaInicio" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha de Inicio</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP')) : (<span>Seleccionar fecha</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
