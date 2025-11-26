@@ -1,102 +1,57 @@
 
-import { NextResponse } from 'next/server';
 import { sql } from '@vercel/postgres';
+import { NextResponse } from 'next/server';
 
-const contratosDeEjemplo = [
-  {
-    nombre: 'Contrato de Desarrollo de Software',
-    cliente: 'Tech Solutions Inc.',
-    estado: 'Activo',
-    fecha_inicio: '2024-01-15',
-    fecha_fin: '2024-12-31',
-    fecha_termino_estimada: '2024-12-15',
-    monto_base: 50000,
-    monto_total: 58000,
-    anticipo_monto: 10000,
-    anticipo_fecha: '2024-01-20'
-  },
-  {
-    nombre: 'Contrato de Mantenimiento de Redes',
-    cliente: 'Global Logistics',
-    estado: 'Pendiente',
-    fecha_inicio: '2024-03-01',
-    fecha_fin: '2025-02-28',
-    fecha_termino_estimada: '2025-02-20',
-    monto_base: 25000,
-    monto_total: 29000,
-    anticipo_monto: 5000,
-    anticipo_fecha: '2024-03-05'
-  },
-  {
-    nombre: 'Contrato de Consultoría de Seguridad',
-    cliente: 'Secure Finance Corp',
-    estado: 'Completado',
-    fecha_inicio: '2023-09-01',
-    fecha_fin: '2024-08-31',
-    fecha_termino_estimada: '2024-08-25',
-    monto_base: 75000,
-    monto_total: 87000,
-    anticipo_monto: 15000,
-    anticipo_fecha: '2023-09-10'
-  }
-];
-
+// Este endpoint reinicia TODA la base de datos a un estado limpio y conocido.
+// Es una herramienta de desarrollo y debe usarse con precaución.
 export async function GET() {
   try {
-    // Usamos CASCADE para eliminar las tablas y todas sus dependencias
-    await sql`DROP TABLE IF EXISTS estimaciones CASCADE;`;
-    await sql`DROP TABLE IF EXISTS contratos CASCADE;`;
+    // -- 1. Eliminar Tablas Existentes en el Orden Correcto --
+    // Se elimina primero Estimaciones porque depende de Contratos.
+    await sql`DROP TABLE IF EXISTS Estimaciones;`;
+    await sql`DROP TABLE IF EXISTS Contratos;`;
 
-    // Crear tabla de contratos
+    // -- 2. Crear Tablas con el Schema ACTUALIZADO --
+
+    // Tabla de Contratos (Schema Moderno + Campo para Retención)
     await sql`
-        CREATE TABLE contratos (
-            id SERIAL PRIMARY KEY,
-            nombre VARCHAR(255) NOT NULL,
-            cliente VARCHAR(255) NOT NULL,
-            estado VARCHAR(50) NOT NULL,
-            fecha_inicio DATE,
-            fecha_fin DATE,
-            fecha_termino_estimada DATE,
-            monto_base NUMERIC,
-            monto_total NUMERIC,
-            anticipo_monto NUMERIC,
-            anticipo_fecha DATE,
-            createdAt TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        );
+      CREATE TABLE Contratos (
+        id SERIAL PRIMARY KEY,
+        nombre VARCHAR(255) NOT NULL,
+        cliente VARCHAR(255) NOT NULL,
+        montoConIVA DECIMAL(12, 2) NOT NULL,
+        fechaInicio DATE NOT NULL,
+        fechaTerminoEstimada DATE NOT NULL,
+        fechaFinalizacionReal DATE, -- El nuevo campo para la fecha de finalización real
+        estado VARCHAR(50) NOT NULL CHECK (estado IN ('Activo', 'Pendiente', 'Completado', 'En Retencion')), -- Nuevo estado
+        anticipoMonto DECIMAL(12, 2),
+        anticipoFecha DATE,
+        anticipoEvidencia TEXT
+      );
     `;
 
-    // Crear tabla de estimaciones
+    // Tabla de Estimaciones (Schema Moderno)
     await sql`
-        CREATE TABLE estimaciones (
-            id SERIAL PRIMARY KEY,
-            contrato_id INTEGER REFERENCES contratos(id) ON DELETE CASCADE,
-            tipo VARCHAR(50) NOT NULL, -- 'Parcial', 'Liquidación'
-            monto NUMERIC NOT NULL,
-            observaciones TEXT,
-            orden_compra_url VARCHAR(255),
-            oc_recibida BOOLEAN DEFAULT false,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        );
+      CREATE TABLE Estimaciones (
+        id SERIAL PRIMARY KEY,
+        contratoId INT REFERENCES Contratos(id) ON DELETE CASCADE,
+        numero VARCHAR(50) NOT NULL,
+        monto DECIMAL(12, 2) NOT NULL,
+        fecha DATE NOT NULL,
+        evidencia TEXT,
+        estado VARCHAR(50) NOT NULL CHECK (estado IN ('Pendiente', 'Aprobada', 'Rechazada'))
+      );
     `;
 
-    // Insertar contratos de ejemplo
-    for (const contrato of contratosDeEjemplo) {
-      await sql`
-        INSERT INTO contratos (
-          nombre, cliente, estado, fecha_inicio, fecha_fin, fecha_termino_estimada, 
-          monto_base, monto_total, anticipo_monto, anticipo_fecha
-        ) VALUES (
-          ${contrato.nombre}, ${contrato.cliente}, ${contrato.estado}, ${contrato.fecha_inicio}, 
-          ${contrato.fecha_fin}, ${contrato.fecha_termino_estimada}, ${contrato.monto_base}, 
-          ${contrato.monto_total}, ${contrato.anticipo_monto}, ${contrato.anticipo_fecha}
-        );
-      `;
-    }
+    // -- 3. (Opcional) Insertar Datos de Ejemplo si es necesario --
+    // Por ahora, lo dejaremos limpio para evitar inconsistencias.
 
-    return NextResponse.json({ message: 'Base de datos reiniciada. Tablas de contratos y estimaciones creadas. Datos de ejemplo insertados.' }, { status: 200 });
+    return NextResponse.json(
+      { message: 'Base de datos reiniciada con el schema actualizado (Contratos + Estimaciones).' }, 
+      { status: 200 }
+    );
 
   } catch (error) {
-    console.error('Database setup failed:', error);
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
