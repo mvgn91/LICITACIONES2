@@ -1,8 +1,6 @@
-
 'use client';
 
-import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -10,9 +8,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
-  DialogClose,
 } from '@/components/ui/dialog';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,7 +37,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 
@@ -59,8 +55,13 @@ const contractSchema = z.object({
 
 type ContractFormData = z.infer<typeof contractSchema>;
 
-export function AddContractModal({ onAddContract }: { onAddContract: (contract: Contrato) => void }) {
-  const [open, setOpen] = useState(false);
+interface AddContractModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onAddContract: (contract: Contrato) => void;
+}
+
+export function AddContractModal({ isOpen, onClose, onAddContract }: AddContractModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -74,6 +75,13 @@ export function AddContractModal({ onAddContract }: { onAddContract: (contract: 
       anticipoMonto: 0,
     },
   });
+  
+  // Resetea el formulario cuando el modal se cierra
+  useEffect(() => {
+    if (!isOpen) {
+      form.reset();
+    }
+  }, [isOpen, form]);
 
   const onSubmit = async (data: ContractFormData) => {
     setIsSubmitting(true);
@@ -93,14 +101,12 @@ export function AddContractModal({ onAddContract }: { onAddContract: (contract: 
 
       const { contrato: newContract } = await response.json();
       
-      onAddContract(newContract);
       toast({
         title: 'Contrato Creado Exitosamente',
-        description: `El contrato "${newContract.nombre}" ha sido guardado en la base de datos.`,
+        description: `El contrato "${newContract.nombre}" ha sido guardado.`,
         variant: 'success'
       });
-      setOpen(false);
-      form.reset();
+      onAddContract(newContract); // Llama al callback del padre
 
     } catch (error) {
       toast({
@@ -114,16 +120,11 @@ export function AddContractModal({ onAddContract }: { onAddContract: (contract: 
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="default" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-          <Plus />
-          Agregar Contrato
-        </Button>
-      </DialogTrigger>
+    // El Dialog es controlado por los props isOpen y onClose
+    <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
-          <DialogTitle className="font-headline">Agregar Nuevo Contrato</DialogTitle>
+          <DialogTitle>Agregar Nuevo Contrato</DialogTitle>
           <DialogDescription>
             Complete los detalles para crear un nuevo contrato.
           </DialogDescription>
@@ -135,28 +136,7 @@ export function AddContractModal({ onAddContract }: { onAddContract: (contract: 
                 <div className='space-y-4'>
                     <FormField control={form.control} name="nombre" render={({ field }) => (<FormItem><FormLabel>Nombre del Contrato</FormLabel><FormControl><Input placeholder="Ej. Residencia Los Robles" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="cliente" render={({ field }) => (<FormItem><FormLabel>Cliente</FormLabel><FormControl><Input placeholder="Ej. Familia González" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField
-                      control={form.control}
-                      name="estado"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Estado del Contrato</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Seleccione un estado" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="Pendiente">Pendiente</SelectItem>
-                              <SelectItem value="Activo">Activo</SelectItem>
-                              <SelectItem value="Completado">Completado</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <FormField control={form.control} name="estado" render={({ field }) => (<FormItem><FormLabel>Estado del Contrato</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un estado" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Pendiente">Pendiente</SelectItem><SelectItem value="Activo">Activo</SelectItem><SelectItem value="Completado">Completado</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="montoConIVA" render={({ field }) => (<FormItem><FormLabel>Monto Total (con IVA)</FormLabel><FormControl><Input type="number" placeholder="120000" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <div className="grid grid-cols-2 gap-4">
                         <FormField control={form.control} name="fechaInicio" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha de Inicio</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP')) : (<span>Seleccionar fecha</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
@@ -175,8 +155,9 @@ export function AddContractModal({ onAddContract }: { onAddContract: (contract: 
             </div>
             
             <DialogFooter className='pt-4'>
-                <DialogClose asChild><Button type="button" variant="secondary">Cancelar</Button></DialogClose>
-                <Button type="submit" disabled={isSubmitting} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {isSubmitting ? 'Guardando...' : 'Guardar Contrato'}
                 </Button>
             </DialogFooter>

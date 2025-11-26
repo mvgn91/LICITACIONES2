@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -9,21 +8,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AddContractModal } from '@/components/contracts/AddContractModal';
 import { ContractDetailsModal } from '@/components/contracts/ContractDetailsModal';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { PlusCircle } from 'lucide-react';
 
 export default function Page() {
+  // --- STATE MANAGEMENT ---
   const [contracts, setContracts] = useState<Contrato[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
+  
+  // State for modals
   const [selectedContract, setSelectedContract] = useState<Contrato | null>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+  // --- DATA FETCHING ---
   const fetchContracts = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await fetch('/api/contratos');
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Error response from server:', errorText);
         throw new Error(`Failed to fetch contracts. Status: ${response.status}`);
       }
       const data = await response.json();
@@ -39,32 +43,41 @@ export default function Page() {
     fetchContracts();
   }, [fetchContracts]);
 
-  const handleAddContract = useCallback((newContract: Contrato) => {
-    fetchContracts();
+  // --- HANDLERS ---
+  const handleAddContractSuccess = useCallback(() => {
+    fetchContracts(); // Refresca la lista de contratos
+    setIsAddModalOpen(false); // Cierra el modal de agregar
   }, [fetchContracts]);
 
   const handleContractClick = (contract: Contrato) => {
     setSelectedContract(contract);
   };
 
-  const handleCloseModal = () => {
+  const handleCloseDetailsModal = () => {
     setSelectedContract(null);
   };
 
+  // --- RENDER ---
   return (
-    <div className="container mx-auto max-w-7xl p-4 md:p-8">
-      <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
-        <h1 className="text-3xl font-bold text-foreground font-headline">Panel de Contratos</h1>
-        <AddContractModal onAddContract={handleAddContract} />
-      </div>
-       <div className="flex justify-between items-center mb-6 gap-4">
-          <div className="flex-grow">
+    <>
+      <div className="container mx-auto max-w-7xl p-4 md:p-8">
+        {/* Header con título y botón único */}
+        <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
+          <h1 className="text-3xl font-bold text-foreground">Panel de Contratos</h1>
+          <Button onClick={() => setIsAddModalOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Agregar Contrato
+          </Button>
+        </div>
+
+        {/* Filtros de búsqueda y estado */}
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+          <div className="w-full flex-grow">
             <Input
               type="text"
-              placeholder="Buscar por ID, obra o cliente..."
+              placeholder="Buscar por nombre, cliente o ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full"
             />
           </div>
           <div className="w-full sm:w-auto">
@@ -73,7 +86,7 @@ export default function Page() {
                 <SelectValue placeholder="Filtrar por estado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Todos">Todos los Estados</SelectItem>
+                <SelectItem value="Todos">Todos</SelectItem>
                 <SelectItem value="Activo">Activo</SelectItem>
                 <SelectItem value="Pendiente">Pendiente</SelectItem>
                 <SelectItem value="Completado">Completado</SelectItem>
@@ -82,26 +95,34 @@ export default function Page() {
           </div>
         </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Skeleton className="h-48 w-full rounded-lg" />
-          <Skeleton className="h-48 w-full rounded-lg" />
-          <Skeleton className="h-48 w-full rounded-lg" />
-        </div>
-      ) : (
-        <ContractList 
-          contracts={contracts} 
-          searchTerm={searchTerm} 
-          statusFilter={statusFilter} 
-          onContractClick={handleContractClick} 
-        />
-      )}
+        {/* Contenido principal: Skeleton o Lista de Contratos */}
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-64 w-full rounded-lg" />)}
+          </div>
+        ) : (
+          <ContractList 
+            contracts={contracts} 
+            searchTerm={searchTerm} 
+            statusFilter={statusFilter} 
+            onContractClick={handleContractClick} 
+            onAddNew={() => setIsAddModalOpen(true)} // Conectado al estado del modal
+          />
+        )}
+      </div>
 
+      {/* Modals */}
       <ContractDetailsModal 
         contract={selectedContract}
         isOpen={!!selectedContract}
-        onClose={handleCloseModal}
+        onClose={handleCloseDetailsModal}
       />
-    </div>
+
+      <AddContractModal 
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onAddContract={handleAddContractSuccess}
+      />
+    </>
   );
 }
