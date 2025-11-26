@@ -1,6 +1,6 @@
 
 'use client';
-import Link from 'next/link';
+
 import { Progress } from '@/components/ui/progress';
 import {
   Users,
@@ -11,27 +11,27 @@ import type { Contrato, Estimacion } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { useMemo } from 'react';
 
 interface ContractListItemProps {
   contract: Contrato & { estimaciones?: Omit<Estimacion, 'isCompleted'>[] };
+  onClick: () => void;
 }
 
-export function ContractListItem({ contract }: ContractListItemProps) {
+export function ContractListItem({ contract, onClick }: ContractListItemProps) {
 
   const progress = useMemo(() => {
-    const anticipo = contract.anticipoMonto || 0;
-    if (contract.montoConIVA === 0) return 0;
-    const montoEstimado = contract.estimaciones?.reduce((acc, est) => acc + (est.monto || 0), 0) || 0;
-    const totalPagado = anticipo + montoEstimado;
-    return Math.round((totalPagado / contract.montoConIVA) * 100);
+    // TODO: This logic will be updated once payment history is implemented
+    return 0; 
   }, [contract]);
 
   const progressColor = useMemo(() => progress >= 100 ? 'bg-green-500' : 'bg-accent', [progress]);
 
   return (
-    <Card className="flex flex-col h-full hover:shadow-lg transition-shadow duration-300">
+    <Card 
+      className="flex flex-col h-full hover:shadow-lg transition-shadow duration-300 cursor-pointer"
+      onClick={onClick} // This makes the whole card clickable
+    >
       <CardHeader>
         <div className="flex justify-between items-start">
           <CardDescription className="font-institutional flex items-center text-xs">
@@ -63,12 +63,10 @@ export function ContractListItem({ contract }: ContractListItemProps) {
       </CardContent>
 
       <CardFooter className="bg-muted/50 p-4 justify-end">
-        <Button asChild variant="ghost" size="sm">
-            <Link href={`/contracts/${contract.id}`}>
-                Ver Detalles
-                <ChevronRight className="ml-2 h-4 w-4" />
-            </Link>
-        </Button>
+        <div className="flex items-center text-sm font-semibold text-accent-foreground">
+          Ver Detalles
+          <ChevronRight className="ml-2 h-4 w-4" />
+        </div>
       </CardFooter>
     </Card>
   );

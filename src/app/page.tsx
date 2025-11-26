@@ -7,6 +7,7 @@ import { ContractList } from '@/components/contracts/ContractList';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AddContractModal } from '@/components/contracts/AddContractModal';
+import { ContractDetailsModal } from '@/components/contracts/ContractDetailsModal';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Page() {
@@ -14,6 +15,7 @@ export default function Page() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
+  const [selectedContract, setSelectedContract] = useState<Contrato | null>(null);
 
   const fetchContracts = useCallback(async () => {
     try {
@@ -28,7 +30,6 @@ export default function Page() {
       setContracts(data.contratos || []);
     } catch (error) {
       console.error(error);
-      // Aquí podrías manejar el estado de error, por ejemplo, mostrando un toast
     } finally {
       setIsLoading(false);
     }
@@ -39,10 +40,16 @@ export default function Page() {
   }, [fetchContracts]);
 
   const handleAddContract = useCallback((newContract: Contrato) => {
-    // Re-fetch all contracts to ensure the list is completely up-to-date
-    // This is more robust than just adding the contract to the local state
     fetchContracts();
   }, [fetchContracts]);
+
+  const handleContractClick = (contract: Contrato) => {
+    setSelectedContract(contract);
+  };
+
+  const handleCloseModal = () => {
+    setSelectedContract(null);
+  };
 
   return (
     <div className="container mx-auto max-w-7xl p-4 md:p-8">
@@ -68,7 +75,8 @@ export default function Page() {
               <SelectContent>
                 <SelectItem value="Todos">Todos los Estados</SelectItem>
                 <SelectItem value="Activo">Activo</SelectItem>
-                <SelectItem value="Cerrado">Cerrado</SelectItem>
+                <SelectItem value="Pendiente">Pendiente</SelectItem>
+                <SelectItem value="Completado">Completado</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -81,8 +89,19 @@ export default function Page() {
           <Skeleton className="h-48 w-full rounded-lg" />
         </div>
       ) : (
-        <ContractList contracts={contracts} searchTerm={searchTerm} statusFilter={statusFilter} />
+        <ContractList 
+          contracts={contracts} 
+          searchTerm={searchTerm} 
+          statusFilter={statusFilter} 
+          onContractClick={handleContractClick} 
+        />
       )}
+
+      <ContractDetailsModal 
+        contract={selectedContract}
+        isOpen={!!selectedContract}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 }

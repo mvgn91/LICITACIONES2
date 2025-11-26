@@ -43,9 +43,11 @@ const contratosDeEjemplo = [
 
 export async function GET() {
   try {
-    // Usamos CASCADE para eliminar la tabla y todas sus dependencias (ej. secuencias)
+    // Usamos CASCADE para eliminar las tablas y todas sus dependencias
+    await sql`DROP TABLE IF EXISTS estimaciones CASCADE;`;
     await sql`DROP TABLE IF EXISTS contratos CASCADE;`;
 
+    // Crear tabla de contratos
     await sql`
         CREATE TABLE contratos (
             id SERIAL PRIMARY KEY,
@@ -63,6 +65,21 @@ export async function GET() {
         );
     `;
 
+    // Crear tabla de estimaciones
+    await sql`
+        CREATE TABLE estimaciones (
+            id SERIAL PRIMARY KEY,
+            contrato_id INTEGER REFERENCES contratos(id) ON DELETE CASCADE,
+            tipo VARCHAR(50) NOT NULL, -- 'Parcial', 'Liquidación'
+            monto NUMERIC NOT NULL,
+            observaciones TEXT,
+            orden_compra_url VARCHAR(255),
+            oc_recibida BOOLEAN DEFAULT false,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+
+    // Insertar contratos de ejemplo
     for (const contrato of contratosDeEjemplo) {
       await sql`
         INSERT INTO contratos (
@@ -76,7 +93,7 @@ export async function GET() {
       `;
     }
 
-    return NextResponse.json({ message: 'Base de datos reiniciada. Tabla de contratos creada y datos de ejemplo insertados.' }, { status: 200 });
+    return NextResponse.json({ message: 'Base de datos reiniciada. Tablas de contratos y estimaciones creadas. Datos de ejemplo insertados.' }, { status: 200 });
 
   } catch (error) {
     console.error('Database setup failed:', error);
