@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -37,6 +36,7 @@ import {
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import { es } from 'date-fns/locale'; // <-- Importar el locale en español
 
 const contractSchema = z.object({
   nombre: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
@@ -46,7 +46,7 @@ const contractSchema = z.object({
   fechaTerminoEstimada: z.date({ required_error: 'La fecha de término es requerida.' }),
   anticipoMonto: z.coerce.number().positive('El monto del anticipo debe ser un número positivo.'),
   anticipoFecha: z.date({ required_error: 'La fecha del anticipo es requerida.' }),
-  estado: z.string(), // Añadimos el estado al esquema
+  estado: z.string(),
 });
 
 type ContractFormData = z.infer<typeof contractSchema>;
@@ -54,9 +54,10 @@ type ContractFormData = z.infer<typeof contractSchema>;
 interface EditContractModalProps {
   contract: Contrato;
   onContractUpdated: (contract: Contrato) => void;
+  disabled?: boolean;
 }
 
-export function EditContractModal({ contract, onContractUpdated }: EditContractModalProps) {
+export function EditContractModal({ contract, onContractUpdated, disabled }: EditContractModalProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
@@ -70,10 +71,10 @@ export function EditContractModal({ contract, onContractUpdated }: EditContractM
       form.reset({
         nombre: contract.nombre,
         cliente: contract.cliente,
-        montoConIVA: contract.montoConIVA,
+        montoConIVA: parseFloat(String(contract.montoConIVA)),
         fechaInicio: new Date(contract.fechaInicio),
         fechaTerminoEstimada: new Date(contract.fechaTerminoEstimada),
-        anticipoMonto: contract.anticipoMonto || 0,
+        anticipoMonto: parseFloat(String(contract.anticipoMonto || 0)),
         anticipoFecha: new Date(contract.anticipoFecha || Date.now()),
         estado: contract.estado,
       });
@@ -86,9 +87,7 @@ export function EditContractModal({ contract, onContractUpdated }: EditContractM
       const response = await fetch(`/api/contratos/${contract.id}`,
         {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         }
       );
@@ -122,7 +121,9 @@ export function EditContractModal({ contract, onContractUpdated }: EditContractM
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline"><FilePenLine className="-ml-1 mr-2 h-4 w-4" />Editar</Button>
+        <Button variant="outline" disabled={disabled}>
+          <FilePenLine className="-ml-1 mr-2 h-4 w-4" />Editar
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-4xl">
         <DialogHeader>
@@ -134,26 +135,23 @@ export function EditContractModal({ contract, onContractUpdated }: EditContractM
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 pt-4">
-                 {/* Columna Izquierda */}
                 <div className='space-y-4'>
                     <FormField control={form.control} name="nombre" render={({ field }) => (<FormItem><FormLabel>Nombre del Contrato</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="cliente" render={({ field }) => (<FormItem><FormLabel>Cliente</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <FormField control={form.control} name="montoConIVA" render={({ field }) => (<FormItem><FormLabel>Monto Total (con IVA)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     <div className="grid grid-cols-2 gap-4">
-                        <FormField control={form.control} name="fechaInicio" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha de Inicio</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP')) : (<span>Seleccionar fecha</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="fechaTerminoEstimada" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha de Término</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP')) : (<span>Seleccionar fecha</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="fechaInicio" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha de Inicio</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP', { locale: es })) : (<span>Seleccionar fecha</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar locale={es} mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="fechaTerminoEstimada" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha de Término</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP', { locale: es })) : (<span>Seleccionar fecha</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar locale={es} mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
                     </div>
                 </div>
-                 {/* Columna Derecha */}
                 <div className='space-y-4'>
                     <div className="space-y-4 rounded-md border p-4 bg-background/50 h-fit">
                         <h3 className="font-medium leading-none">Datos del Anticipo</h3>
                         <FormField control={form.control} name="anticipoMonto" render={({ field }) => (<FormItem><FormLabel>Monto</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="anticipoFecha" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP')) : (<span>Seleccionar fecha</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="anticipoFecha" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP', { locale: es })) : (<span>Seleccionar fecha</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar locale={es} mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
                     </div>
                 </div>
             </div>
-            
             <DialogFooter className='pt-4'>
                 <DialogClose asChild><Button type="button" variant="secondary">Cancelar</Button></DialogClose>
                 <Button type="submit" disabled={isSubmitting} className="bg-accent hover:bg-accent/90 text-accent-foreground">

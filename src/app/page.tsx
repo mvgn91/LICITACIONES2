@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -24,8 +25,9 @@ export default function Page() {
 
   // --- DATA FETCHING ---
   const fetchContracts = useCallback(async () => {
+    // No mostrar el loader en las recargas silenciosas
+    // setIsLoading(true); 
     try {
-      setIsLoading(true);
       const response = await fetch('/api/contratos');
       if (!response.ok) {
         throw new Error(`Failed to fetch contracts. Status: ${response.status}`);
@@ -45,8 +47,14 @@ export default function Page() {
 
   // --- HANDLERS ---
   const handleAddContractSuccess = useCallback(() => {
-    fetchContracts(); // Refresca la lista de contratos
-    setIsAddModalOpen(false); // Cierra el modal de agregar
+    fetchContracts();
+    setIsAddModalOpen(false);
+  }, [fetchContracts]);
+
+  // ! NUEVO: Handler para cuando se agrega una estimación
+  const handleEstimacionAddedSuccess = useCallback(() => {
+    // Simplemente volvemos a cargar los datos de los contratos para reflejar el progreso.
+    fetchContracts(); 
   }, [fetchContracts]);
 
   const handleContractClick = (contract: Contrato) => {
@@ -61,7 +69,6 @@ export default function Page() {
   return (
     <>
       <div className="container mx-auto max-w-7xl p-4 md:p-8">
-        {/* Header con título y botón único */}
         <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-6 gap-4">
           <h1 className="text-3xl font-bold text-foreground">Panel de Contratos</h1>
           <Button onClick={() => setIsAddModalOpen(true)}>
@@ -70,7 +77,6 @@ export default function Page() {
           </Button>
         </div>
 
-        {/* Filtros de búsqueda y estado */}
         <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
           <div className="w-full flex-grow">
             <Input
@@ -95,7 +101,6 @@ export default function Page() {
           </div>
         </div>
 
-        {/* Contenido principal: Skeleton o Lista de Contratos */}
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-64 w-full rounded-lg" />)}
@@ -106,16 +111,18 @@ export default function Page() {
             searchTerm={searchTerm} 
             statusFilter={statusFilter} 
             onContractClick={handleContractClick} 
-            onAddNew={() => setIsAddModalOpen(true)} // Conectado al estado del modal
+            onAddNew={() => setIsAddModalOpen(true)}
           />
         )}
       </div>
 
-      {/* Modals */}
+      {/* MODALS */}
       <ContractDetailsModal 
         contract={selectedContract}
         isOpen={!!selectedContract}
         onClose={handleCloseDetailsModal}
+        // ! NUEVO: Conectamos el evento a nuestro handler
+        onEstimacionAdded={handleEstimacionAddedSuccess}
       />
 
       <AddContractModal 

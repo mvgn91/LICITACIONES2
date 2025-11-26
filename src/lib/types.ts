@@ -1,50 +1,64 @@
 
-export type Estado = 'Activo' | 'Cerrado' | 'Terminado';
+// --- Tipos Base ---
+export type ContratoId = number;
+export type EstimacionId = number;
 
+// --- Nueva Arquitectura para Flujo de Aprobación ---
+
+// El estado de un documento individual en el flujo de aprobación.
+export type DocumentoStatus = 'Pendiente' | 'Cargado' | 'Aprobado' | 'Rechazado';
+
+// Representa un único documento requerido en una fase.
+export interface Documento {
+  id: string; // Identificador único del documento, ej: "doc_acta_constitutiva"
+  nombre: string; // Nombre legible para el usuario, ej: "Acta Constitutiva"
+  estado: DocumentoStatus;
+  url?: string; // URL al archivo, si existe
+  fechaCarga?: string;
+  fechaAprobacion?: string;
+}
+
+// Representa una fase del proceso de aprobación, que contiene múltiples documentos.
+export interface Fase {
+  id: string; // Identificador único de la fase, ej: "fase_1_constructora"
+  nombre: string; // Nombre legible, ej: "Fase 1: Revisión Constructora"
+  documentos: Documento[];
+  estaAprobada: boolean; // Se calcula si todos los documentos de la fase están aprobados.
+}
+
+// --- Tipos Principales de la Aplicación ---
+
+// Representa una estimación o pago asociado a un contrato.
+export interface Estimacion {
+  id: EstimacionId;
+  contratoId: ContratoId;
+  numero: string;
+  tipo: 'Parcial' | 'Liquidación';
+  descripcion: string;
+  monto: number | string;
+  fecha: string;
+  estado: 'Pendiente' | 'Aprobada' | 'Pagada';
+  evidencia?: string; 
+}
+
+// El objeto principal que representa un contrato.
 export interface Contrato {
-  id: string;
+  id: ContratoId;
   nombre: string;
   cliente: string;
-  montoConIVA: number;
-  montoSinIVA: number;
-  montoBase: number;
-  fechaInicio: number;
-  fechaTerminoEstimada: number;
-  estado: Estado;
-  userId: string;
-  createdAt: number;
+  montoBase: number | string;
+  montoConIVA: number | string;
+  fechaInicio: string;
+  fechaTerminoEstimada: string;
+  anticipoMonto?: number | string;
+  anticipoFecha?: string;
+  anticipoEvidencia?: string;
+  estado: string; // Ej: "Activo", "Completado", "En Pausa"
 
-  // Fases y Aprobaciones
+  // --- Campos Obsoletos (se mantienen temporalmente para evitar errores) ---
   faseConstructoraAprobada?: boolean;
   faseControlPresupuestalAprobada?: boolean;
-  faseConstructoraEvidencia?: string[]; // Rutas a archivos
-  faseControlPresupuestalEvidencia?: string[]; // Rutas a archivos
 
-  // Pagos y Estimaciones
-  estimaciones?: Estimacion[];
-  anticipoMonto?: number;
-  anticipoFecha?: number;
-  anticipoEvidencia?: string[];
-}
-
-export interface Estimacion {
-    id: string;
-    tipo: 'Parcial' | 'Liquidación';
-    monto: number;
-    observaciones?: string;
-    createdAt: number;
-    evidencias?: string[]; // Rutas a archivos de evidencia
-    ordenCompraUrl?: string;
-    ocRecibida?: boolean;
-}
-
-export interface Transaction {
-    id: string;
-    type: 'Anticipo' | 'Estimación';
-    description: string;
-    date: number;
-    amount: number;
-    evidence?: string[];
-    ordenCompraUrl?: string;
-    ocRecibida?: boolean;
+  // --- La Nueva Estructura --- 
+  fases?: Fase[]; 
 }

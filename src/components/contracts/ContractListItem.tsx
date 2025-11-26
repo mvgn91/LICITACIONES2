@@ -21,15 +21,21 @@ function getStatusBadge(status: string | undefined) {
       return "bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100";
     case 'Pendiente':
       return "bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100";
+    case 'En Retencion':
+        return "bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-100";
     default:
       return "bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-100";
   }
 }
 
 export function ContractListItem({ contract, onClick }: ContractListItemProps) {
-  const montoTotal = contract.montoConIVA || 0;
-  const totalEstimaciones = (contract.estimaciones || []).reduce((sum, est) => sum + est.monto, 0);
-  const pagosRecibidos = (contract.anticipoMonto || 0) + totalEstimaciones;
+  // Forzar la conversión a número para todos los cálculos
+  const montoTotal = parseFloat(String(contract.montoConIVA || 0));
+  const anticipo = parseFloat(String(contract.anticipoMonto || 0));
+  // Nota: Las estimaciones en la lista son un resumen, pueden no estar siempre presentes.
+  const totalEstimaciones = (contract.estimaciones || []).reduce((sum, est) => sum + parseFloat(String(est.monto || 0)), 0);
+  
+  const pagosRecibidos = anticipo + totalEstimaciones;
   const saldoRestante = montoTotal - pagosRecibidos;
   const progressPercentage = montoTotal > 0 ? (pagosRecibidos / montoTotal) * 100 : 0;
 

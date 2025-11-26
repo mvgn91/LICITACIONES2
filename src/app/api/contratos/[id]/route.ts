@@ -1,90 +1,113 @@
 
 import { sql } from '@vercel/postgres';
 import { NextResponse } from 'next/server';
+import { Contrato, EstadoContrato } from '@/lib/types';
 
+// GET: Obtener un contrato específico por ID
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-    try {
-        const { id } = params;
-        const { rows } = await sql`
-            SELECT 
-                id, nombre, cliente, estado,
-                fecha_inicio AS "fechaInicio",
-                fecha_fin AS "fechaFin",
-                fecha_termino_estimada AS "fechaTerminoEstimada",
-                monto_base AS "montoBase",
-                monto_total AS "montoConIVA",
-                anticipo_monto AS "anticipoMonto",
-                anticipo_fecha AS "anticipoFecha"
-            FROM contratos WHERE id = ${id};
-        `;
-        if (rows.length === 0) {
-            return NextResponse.json({ error: 'Contract not found' }, { status: 404 });
-        }
-        return NextResponse.json({ contrato: rows[0] });
-    } catch (error) {
-        console.error('Error fetching contract:', error);
-        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+  try {
+    const { id } = params;
+    const { rows } = await sql<Contrato>`SELECT * FROM Contratos WHERE id = ${id};`;
+
+    if (rows.length === 0) {
+      return NextResponse.json({ error: 'Contrato no encontrado' }, { status: 404 });
     }
+    
+    return NextResponse.json({ contrato: rows[0] });
+
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+  }
 }
 
+// PUT: Actualizar un contrato completo (no usado para el flujo de aprobación)
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
-    try {
-        const { id } = params;
-        const { 
-          nombre, cliente, estado, 
-          fechaInicio, fechaFin, fechaTerminoEstimada, 
-          montoBase, montoConIVA, 
-          anticipoMonto, anticipoFecha 
-        } = await request.json();
+  try {
+    const { id } = params;
+    const contrato: Partial<Contrato> = await request.json();
 
-        const result = await sql`
-            UPDATE contratos SET 
-              nombre = ${nombre}, 
-              cliente = ${cliente}, 
-              estado = ${estado}, 
-              fecha_inicio = ${fechaInicio}, 
-              fecha_fin = ${fechaFin}, 
-              fecha_termino_estimada = ${fechaTerminoEstimada}, 
-              monto_base = ${montoBase}, 
-              monto_total = ${montoConIVA}, 
-              anticipo_monto = ${anticipoMonto}, 
-              anticipo_fecha = ${anticipoFecha}
-            WHERE id = ${id} RETURNING *;
-        `;
+    let estadoFinal: EstadoContrato | undefined = contrato.estado;
+    let fechaFinalizacion: string | null = null;
 
-        if (result.rows.length === 0) {
-            return NextResponse.json({ error: 'Contract not found' }, { status: 404 });
-        }
-
-        const updatedContract = {
-            ...result.rows[0],
-            fechaInicio: result.rows[0].fecha_inicio,
-            fechaFin: result.rows[0].fecha_fin,
-            fechaTerminoEstimada: result.rows[0].fecha_termino_estimada,
-            montoBase: result.rows[0].monto_base,
-            montoConIVA: result.rows[0].monto_total,
-            anticipoMonto: result.rows[0].anticipo_monto,
-            anticipoFecha: result.rows[0].anticipo_fecha
-        }
-
-        return NextResponse.json({ contrato: updatedContract });
-
-    } catch (error) {
-        console.error('Error updating contract:', error);
-        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+    if (contrato.estado === 'Completado') {
+      estadoFinal = 'En Retencion';
+      fechaFinalizacion = new Date().toISOString().split('T')[0];
     }
+
+    const result = await sql`
+      UPDATE Contratos
+      SET 
+        nombre = ${contrato.nombre},
+        cliente = ${contrato.cliente},
+        "montoConIVA" = ${contrato.montoConIVA},
+        "fechaInicio" = ${contrato.fechaInicio},
+        "fechaTerminoEstimada" = ${contrato.fechaTerminoEstimada},
+        "anticipoMonto" = ${contrato.anticipoMonto},
+        "anticipoFecha" = ${contrato.anticipoFecha},
+        "anticipoEvidencia" = ${contrato.anticipoEvidencia},
+        estado = ${estadoFinal},
+        "fechaFinalizacionReal" = ${fechaFinalizacion}
+      WHERE id = ${id}
+      RETURNING *;
+    `;
+
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'Contrato no encontrado para actualizar' }, { status: 404 });
+    }
+
+    return NextResponse.json({ contrato: result.rows[0] });
+
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+  }
 }
 
+// *** ¡NUEVO! PATCH: Actualizar campos específicos como el flujo de aprobación ***
+export async function PATCH(request: Request, { params }: { params: { id: string } }) {
+  try {
+    const { id } = params;
+    const body = await request.json();
+
+    const { faseConstructoraAprobada, faseControlPresupuestalAprobada } = body;
+
+    // Validar que al menos uno de los campos esperados esté presente
+    if (faseConstructoraAprobada === undefined && faseControlPresupuestalAprobada === undefined) {
+      return NextResponse.json({ error: 'No se proporcionaron campos válidos para actualizar.' }, { status: 400 });
+    }
+
+    const result = await sql`
+      UPDATE Contratos
+      SET 
+        "faseConstructoraAprobada" = ${faseConstructoraAprobada},
+        "faseControlPresupuestalAprobada" = ${faseControlPresupuestalAprobada}
+      WHERE id = ${id}
+      RETURNING id, "faseConstructoraAprobada", "faseControlPresupuestalAprobada";
+    `;
+
+    if (result.rows.length === 0) {
+      return NextResponse.json({ error: 'Contrato no encontrado para actualizar.' }, { status: 404 });
+    }
+
+    return NextResponse.json({ message: 'Flujo de aprobación actualizado', contrato: result.rows[0] });
+
+  } catch (error) {
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+  }
+}
+
+// DELETE: Eliminar un contrato por ID
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
     const { id } = params;
-    const result = await sql`DELETE FROM contratos WHERE id = ${id} RETURNING *;`;
-    if (result.rows.length === 0) {
-      return NextResponse.json({ error: 'Contract not found' }, { status: 404 });
+    const result = await sql`DELETE FROM Contratos WHERE id = ${id} RETURNING *;`;
+
+    if (result.rowCount === 0) {
+      return NextResponse.json({ error: 'Contrato no encontrado para eliminar' }, { status: 404 });
     }
-    return NextResponse.json({ message: 'Contract deleted successfully' });
+    
+    return NextResponse.json({ message: `Contrato con id ${id} eliminado exitosamente.` });
+
   } catch (error) {
-    console.error('Error deleting contract:', error);
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }

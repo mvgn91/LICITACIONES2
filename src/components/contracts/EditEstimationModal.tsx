@@ -1,107 +1,150 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import React, { useState, useEffect } from 'react';
+import { FilePenLine, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from '@/components/ui/dialog';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 import type { Estimacion } from '@/lib/types';
-import { Paperclip } from 'lucide-react';
+
+// Esquema de validación para el formulario de edición
+const estimacionSchema = z.object({
+  monto: z.coerce.number().positive('El monto debe ser un número positivo.'),
+  descripcion: z.string().optional(),
+  // No incluimos 'tipo' porque no debería ser editable una vez creada.
+});
+
+type EstimacionFormData = z.infer<typeof estimacionSchema>;
 
 interface EditEstimationModalProps {
-  estimation: Estimacion;
-  isOpen: boolean;
-  onClose: () => void;
-  onUpdate: (updatedEstimation: Estimacion) => void;
+  estimacion: Estimacion;
+  onEstimationUpdated: (updatedEstimation: Estimacion) => void;
 }
 
-export function EditEstimationModal({ estimation, isOpen, onClose, onUpdate }: EditEstimationModalProps) {
-  const [tipo, setTipo] = useState(estimation.tipo);
-  const [monto, setMonto] = useState(String(estimation.monto));
-  const [observaciones, setObservaciones] = useState(estimation.observaciones || '');
-  const [newEvidenciaFile, setNewEvidenciaFile] = useState<File | null>(null);
+export function EditEstimationModal({ estimacion, onEstimationUpdated }: EditEstimationModalProps) {
+  const [open, setOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { toast } = useToast();
+
+  const form = useForm<EstimacionFormData>({
+    resolver: zodResolver(estimacionSchema),
+  });
 
   useEffect(() => {
-    if (isOpen) {
-        setTipo(estimation.tipo);
-        setMonto(String(estimation.monto));
-        setObservaciones(estimation.observaciones || '');
-        setNewEvidenciaFile(null);
+    if (estimacion) {
+      form.reset({
+        monto: parseFloat(String(estimacion.monto)),
+        descripcion: estimacion.descripcion || '',
+      });
     }
-  }, [isOpen, estimation]);
+  }, [estimacion, form]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setNewEvidenciaFile(e.target.files[0]);
+  const onSubmit = async (data: EstimacionFormData) => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/estimaciones/${estimacion.id}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Error al actualizar la estimación.');
+      }
+
+      const { estimacion: updatedEstimation } = await response.json();
+
+      onEstimationUpdated(updatedEstimation);
+      toast({
+        title: 'Estimación Actualizada',
+        description: `La estimación ha sido guardada correctamente.`,
+        variant: 'success',
+      });
+      setOpen(false);
+
+    } catch (error) {
+      toast({
+        title: 'Error al Guardar',
+        description: (error as Error).message,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
     }
-  };
-
-  const handleSubmit = () => {
-    // In a real app, if newEvidenciaFile exists, you would upload it here
-    // and get back a URL. For now, we just use the file name.
-    const newEvidencias = newEvidenciaFile 
-      ? [newEvidenciaFile.name] 
-      : estimation.evidencias;
-
-    const updatedEstimation: Estimacion = {
-      ...estimation,
-      tipo,
-      monto: parseFloat(monto) || 0,
-      observaciones,
-      evidencias: newEvidencias,
-    };
-    onUpdate(updatedEstimation);
-    onClose();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px]">
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm"><FilePenLine className="h-4 w-4" /></Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Editar Estimación</DialogTitle>
+          <DialogTitle>Editar Estimación #{estimacion.numero}</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="tipo-edit" className="text-right">Tipo</Label>
-            <Select onValueChange={(value) => setTipo(value as Estimacion['tipo'])} value={tipo}>
-              <SelectTrigger id="tipo-edit" className="col-span-3">
-                <SelectValue placeholder="Selecciona un tipo" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Parcial">Parcial</SelectItem>
-                <SelectItem value="Total">Total</SelectItem>
-                <SelectItem value="Liquidación">Liquidación</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="monto-edit" className="text-right">Monto</Label>
-            <Input id="monto-edit" type="number" value={monto} onChange={(e) => setMonto(e.target.value)} className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="observaciones-edit" className="text-right">Observaciones</Label>
-            <Textarea id="observaciones-edit" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="evidencia-edit" className="text-right">Evidencia</Label>
-            <div className="col-span-3 space-y-2">
-                {estimation.evidencias && estimation.evidencias.length > 0 && !newEvidenciaFile && (
-                    <div className="text-sm text-muted-foreground flex items-center">
-                        <Paperclip className="h-4 w-4 mr-2"/>
-                        <span>{estimation.evidencias[0]}</span>
-                    </div>
-                )}
-                <Input id="evidencia-edit" type="file" onChange={handleFileChange} className="file:text-foreground" placeholder="Reemplazar evidencia..."/>
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSubmit}>Guardar Cambios</Button>
-        </DialogFooter>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="monto"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Monto</FormLabel>
+                  <FormControl>
+                    <Input type="number" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="descripcion"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Descripción / Observaciones</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter className='pt-4'>
+                <DialogClose asChild><Button type="button" variant="secondary">Cancelar</Button></DialogClose>
+                <Button type="submit" disabled={isSubmitting}>
+                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : 'Guardar Cambios'}
+                </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
