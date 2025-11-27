@@ -42,22 +42,32 @@ export function EstimacionesTab({ contract }: EstimacionesTabProps) {
   });
 
   const fetchEstimaciones = useCallback(async () => {
+    if (!contract?.id) {
+        setIsLoading(false);
+        return;
+    }
     try {
       setIsLoading(true);
       const response = await fetch(`/api/estimaciones?contrato_id=${contract.id}`);
-      if (!response.ok) throw new Error('Error al cargar las estimaciones.');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || 'Error al cargar las estimaciones.');
+      }
       const data = await response.json();
       setEstimaciones(data.estimaciones || []);
     } catch (error) {
-      toast({ title: 'Error', description: (error as Error).message, variant: 'destructive' });
+      console.error("[FETCH_ESTIMACIONES_ERROR]", error);
+      toast({ title: 'Error de Estimaciones', description: (error as Error).message, variant: 'destructive' });
+      setEstimaciones([]);
     } finally {
       setIsLoading(false);
     }
-  }, [contract.id, toast]);
+  }, [contract?.id, toast]);
 
   useEffect(() => {
     fetchEstimaciones();
   }, [fetchEstimaciones]);
+
 
   const handleEstimationUpdated = (updatedEstimation: Estimacion) => {
     setEstimaciones(prev => 
@@ -86,10 +96,11 @@ export function EstimacionesTab({ contract }: EstimacionesTabProps) {
     }
   };
 
+  // CORRECCIÓN FINAL: Se eliminan las conversiones forzadas y se confía en los tipos de datos.
   const { totalEstimado, saldo } = useMemo(() => {
-    const totalEstimado = estimaciones.reduce((acc, est) => acc + parseFloat(String(est.monto)), 0);
-    const montoTotal = parseFloat(String(contract.montoConIVA)) || 0;
-    const anticipo = parseFloat(String(contract.anticipoMonto)) || 0;
+    const totalEstimado = estimaciones.reduce((acc, est) => acc + est.monto, 0);
+    const montoTotal = contract.montoConIVA || 0;
+    const anticipo = contract.anticipoMonto || 0;
     const saldo = montoTotal - anticipo - totalEstimado;
     return { totalEstimado, saldo };
   }, [estimaciones, contract]);
@@ -113,18 +124,18 @@ export function EstimacionesTab({ contract }: EstimacionesTabProps) {
               <TableBody>
                 <TableRow className="bg-green-50 dark:bg-green-900/20 font-medium">
                     <TableCell><CheckCircle className="h-4 w-4 mr-2 text-green-600 inline-block"/>Anticipo</TableCell>
-                    <TableCell>{formatDate(contract.anticipoFecha)}</TableCell>
-                    <TableCell className="text-right font-mono">{formatCurrency(parseFloat(String(contract.anticipoMonto)))}</TableCell>
+                    <TableCell>{contract.anticipoFecha ? formatDate(contract.anticipoFecha) : '-'}</TableCell>
+                    <TableCell className="text-right font-mono">{contract.anticipoMonto ? formatCurrency(contract.anticipoMonto) : '-'}</TableCell>
                     <TableCell className="text-center">{contract.anticipoEvidencia ? <a href={contract.anticipoEvidencia} target="_blank"><Paperclip className="h-4 w-4 mx-auto" /></a> : '-'}</TableCell>
                     <TableCell></TableCell>
                 </TableRow>
-                {isLoading && <TableRow><TableCell colSpan={5}>Cargando...</TableCell></TableRow>}
+                {isLoading && <TableRow><TableCell colSpan={5} className="text-center"><Loader2 className="mx-auto h-6 w-6 animate-spin"/></TableCell></TableRow>}
                 {!isLoading && estimaciones.map(est => (
                     <TableRow key={est.id}>
                         <TableCell><Clock className="h-4 w-4 mr-2 text-muted-foreground inline-block"/>Estimación #{est.numero}</TableCell>
                         <TableCell>{formatDate(est.fecha)}</TableCell>
-                        <TableCell className="text-right font-mono">{formatCurrency(parseFloat(String(est.monto)))}</TableCell>
-                        <TableCell className="text-center">{est.evidencia ? <a href={est.evidencia} target="_blank"><Paperclip className="h-4 w-4 mx-auto"/></a> : '-'}</TableCell>
+                        <TableCell className="text-right font-mono">{formatCurrency(est.monto)}</TableCell>
+                        <TableCell className="text-center">{est.evidencia ? <a href={est.evidencia as string} target="_blank"><Paperclip className="h-4 w-4 mx-auto"/></a> : '-'}</TableCell>
                         <TableCell className="text-center">
                            <EditEstimationModal estimacion={est} onEstimationUpdated={handleEstimationUpdated} />
                         </TableCell>
@@ -150,7 +161,7 @@ export function EstimacionesTab({ contract }: EstimacionesTabProps) {
                         <FormField control={form.control} name="monto" render={({ field }) => (<FormItem><FormLabel>Monto</FormLabel><FormControl><Input type="number" placeholder="0.00" {...field} /></FormControl><FormMessage/></FormItem>)} />
                         <FormField control={form.control} name="observaciones" render={({ field }) => (<FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Detalles..." {...field} /></FormControl><FormMessage/></FormItem>)} />
                         <FormField control={form.control} name="evidencia" render={({ field: { value, onChange, ...fieldProps } }) => (<FormItem><FormLabel>Evidencia (Opcional)</FormLabel><FormControl><Input {...fieldProps} type="file" onChange={event => onChange(event.target.files)} /></FormControl><FormMessage/></FormItem>)} />
-                        <Button type="submit" disabled={isSubmitting} className="w-full">{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Guardar</Button>
+                        <Button type="submit" disabled={isSubmitting || !contract?.id} className="w-full">{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Guardar</Button>
                     </form>
                 </Form>
             </CardContent>

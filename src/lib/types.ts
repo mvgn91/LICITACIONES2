@@ -35,7 +35,7 @@ export interface Estimacion {
   numero: string;
   tipo: 'Parcial' | 'Liquidación';
   descripcion: string;
-  monto: number | string;
+  monto: number; 
   fecha: string;
   estado: 'Pendiente' | 'Aprobada' | 'Pagada';
   evidencia?: string; 
@@ -46,16 +46,20 @@ export interface Contrato {
   id: ContratoId;
   nombre: string;
   cliente: string;
-  montoBase: number | string;
-  montoConIVA: number | string;
-  fechaInicio: string;
-  fechaTerminoEstimada: string;
-  anticipoMonto?: number | string;
+  numeroContrato: string;
+  objeto: string;
+  localizacion: string;
+  montoBase: number; 
+  montoConIVA: number; 
+  fechaInicio?: string; // <-- CORREGIDO: La fecha puede ser opcional.
+  fechaTerminoEstimada?: string; // <-- CORREGIDO: La fecha puede ser opcional.
+  anticipoMonto?: number; 
   anticipoFecha?: string;
   anticipoEvidencia?: string;
   estado: string; // Ej: "Activo", "Completado", "En Pausa"
+  fechaFinalizacionReal?: string;
 
-  // --- Campos Obsoletos (se mantienen temporalmente para evitar errores) ---
+  // --- Campos Obsoletos ---
   faseConstructoraAprobada?: boolean;
   faseControlPresupuestalAprobada?: boolean;
 

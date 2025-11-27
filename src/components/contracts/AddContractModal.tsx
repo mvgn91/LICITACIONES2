@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -22,13 +23,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from '@/hooks/use-toast';
 import type { Contrato } from '@/lib/types';
 import { Calendar } from '@/components/ui/calendar';
@@ -40,18 +34,15 @@ import {
 import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { es } from 'date-fns/locale'; // <-- Importar el locale en español
+import { es } from 'date-fns/locale';
 
+// Simplified schema matching the essential API fields
 const contractSchema = z.object({
   nombre: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
-  cliente: z.string().min(3, 'El cliente debe tener al menos 3 caracteres.'),
-  estado: z.enum(['Activo', 'Pendiente', 'Completado'], { required_error: 'El estado es requerido.' }),
-  montoConIVA: z.coerce.number().positive('El monto total debe ser un número positivo.'),
-  fechaInicio: z.date({ required_error: 'La fecha de inicio es requerida.' }),
-  fechaTerminoEstimada: z.date({ required_error: 'La fecha de término es requerida.' }),
-  anticipoMonto: z.coerce.number().positive('El monto del anticipo debe ser un número positivo.'),
-  anticipoFecha: z.date({ required_error: 'La fecha del anticipo es requerida.' }),
-  anticipoEvidencia: z.any().optional(),
+  cliente_nombre: z.string().min(3, 'El cliente debe tener al menos 3 caracteres.'),
+  monto_total: z.coerce.number().positive('El monto total debe ser un número positivo.'),
+  fecha_inicio: z.date({ required_error: 'La fecha de inicio es requerida.' }),
+  fecha_fin: z.date({ required_error: 'La fecha de término es requerida.' }),
 });
 
 type ContractFormData = z.infer<typeof contractSchema>;
@@ -68,28 +59,40 @@ export function AddContractModal({ isOpen, onClose, onAddContract }: AddContract
 
   const form = useForm<ContractFormData>({
     resolver: zodResolver(contractSchema),
+    // Set empty strings or undefined for default values to match uncontrolled->controlled logic
     defaultValues: {
       nombre: '',
-      cliente: '',
-      estado: 'Pendiente',
-      montoConIVA: 0,
-      anticipoMonto: 0,
+      cliente_nombre: '',
     },
   });
   
   useEffect(() => {
+    // Reset form when the modal opens or closes
     if (!isOpen) {
-      form.reset();
+      form.reset({
+        nombre: '',
+        cliente_nombre: '',
+        monto_total: 0,
+        fecha_inicio: undefined,
+        fecha_fin: undefined
+      });
     }
   }, [isOpen, form]);
 
   const onSubmit = async (data: ContractFormData) => {
     setIsSubmitting(true);
     try {
+      // Format dates before sending
+      const apiData = {
+        ...data,
+        fecha_inicio: format(data.fecha_inicio, 'yyyy-MM-dd'),
+        fecha_fin: format(data.fecha_fin, 'yyyy-MM-dd'),
+      };
+
       const response = await fetch('/api/contratos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify(apiData),
       });
 
       if (!response.ok) {
@@ -104,7 +107,8 @@ export function AddContractModal({ isOpen, onClose, onAddContract }: AddContract
         description: `El contrato "${newContract.nombre}" ha sido guardado.`,
         variant: 'success'
       });
-      onAddContract(newContract);
+      onAddContract(newContract); // Callback to update the parent component
+      onClose(); // Close the modal on success
 
     } catch (error) {
       toast({
@@ -119,36 +123,22 @@ export function AddContractModal({ isOpen, onClose, onAddContract }: AddContract
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-4xl">
+      <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Agregar Nuevo Contrato</DialogTitle>
           <DialogDescription>
-            Complete los detalles para crear un nuevo contrato.
+            Complete los detalles esenciales para crear un nuevo contrato.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 pt-4">
-                <div className='space-y-4'>
-                    <FormField control={form.control} name="nombre" render={({ field }) => (<FormItem><FormLabel>Nombre del Contrato</FormLabel><FormControl><Input placeholder="Ej. Residencia Los Robles" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="cliente" render={({ field }) => (<FormItem><FormLabel>Cliente</FormLabel><FormControl><Input placeholder="Ej. Familia González" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="estado" render={({ field }) => (<FormItem><FormLabel>Estado del Contrato</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un estado" /></SelectTrigger></FormControl><SelectContent><SelectItem value="Pendiente">Pendiente</SelectItem><SelectItem value="Activo">Activo</SelectItem><SelectItem value="Completado">Completado</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="montoConIVA" render={({ field }) => (<FormItem><FormLabel>Monto Total (con IVA)</FormLabel><FormControl><Input type="number" placeholder="120000" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                    <div className="grid grid-cols-2 gap-4">
-                        <FormField control={form.control} name="fechaInicio" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha de Inicio</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP', { locale: es })) : (<span>Seleccionar fecha</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar locale={es} mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="fechaTerminoEstimada" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha de Término</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP', { locale: es })) : (<span>Seleccionar fecha</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar locale={es} mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                    </div>
-                </div>
-                <div className='space-y-4'>
-                    <div className="space-y-4 rounded-md border p-4 bg-background/50 h-fit">
-                        <h3 className="font-medium leading-none">Datos del Anticipo</h3>
-                        <FormField control={form.control} name="anticipoMonto" render={({ field }) => (<FormItem><FormLabel>Monto</FormLabel><FormControl><Input type="number" placeholder="25000" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="anticipoFecha" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP', { locale: es })) : (<span>Seleccionar fecha</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar locale={es} mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
-                        <FormField control={form.control} name="anticipoEvidencia" render={({ field: { value, onChange, ...fieldProps } }) => (<FormItem><FormLabel>Evidencia (Opcional)</FormLabel><FormControl><Input {...fieldProps} type="file" onChange={event => onChange(event.target.files)} /></FormControl><FormMessage /></FormItem>)} />
-                    </div>
-                </div>
-            </div>
-            
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+              <FormField control={form.control} name="nombre" render={({ field }) => (<FormItem><FormLabel>Nombre del Contrato</FormLabel><FormControl><Input placeholder="Ej. Residencia Los Robles" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="cliente_nombre" render={({ field }) => (<FormItem><FormLabel>Cliente</FormLabel><FormControl><Input placeholder="Ej. Familia González" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="monto_total" render={({ field }) => (<FormItem><FormLabel>Monto Total</FormLabel><FormControl><Input type="number" step="0.01" placeholder="120000" {...field} /></FormControl><FormMessage /></FormItem>)} />
+              <div className="grid grid-cols-2 gap-4">
+                  <FormField control={form.control} name="fecha_inicio" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha de Inicio</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP', { locale: es })) : (<span>Seleccionar fecha</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar locale={es} mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
+                  <FormField control={form.control} name="fecha_fin" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Fecha de Término</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={'outline'} className={cn('pl-3 text-left font-normal', !field.value && 'text-muted-foreground')}>{field.value ? (format(field.value, 'PPP', { locale: es })) : (<span>Seleccionar fecha</span>)}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar locale={es} mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>)} />
+              </div>
             <DialogFooter className='pt-4'>
                 <Button type="button" variant="secondary" onClick={onClose}>Cancelar</Button>
                 <Button type="submit" disabled={isSubmitting}>
